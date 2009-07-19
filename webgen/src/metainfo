@@ -17,13 +17,14 @@
   # pages using the {var:} syntax.
   # -------------------------------------------------------------------
   project_name: "RMI via JMS"
-  project_slogan: 'Making RMI a little more robust'
+  project_slogan: 'Making RMI easier and more robust'
   project_id: 'rmiviajms'
   project_jira_key: 'RMIVIAJMS'
   project_issue_url: 'http://fusesource.com/issues/browse/RMIVIAJMS'
   project_forums_url: 'http://fusesource.com/forums'
   project_wiki_url: 'http://fusesource.com/wiki/display/RMIVIAJMS'
   project_logo: "/images/project-logo.png"
+  project_version: "1.0-SNAPSHOT"
 
   # -------------------------------------------------------------------
   # TODO it would be nice to define these in terms of the project_id variable!

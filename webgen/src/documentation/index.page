@@ -21,6 +21,7 @@ All the information you need to be become and expert with {project_name:}
         Frequently Asked Questions
       </a>
     </td>
+    <!--
     <td>
       <h2>Manual</h2>
       <a class='main' href='{relocatable: manual/book.html}'>
@@ -29,6 +30,7 @@ All the information you need to be become and expert with {project_name:}
         User Manual
       </a>
     </td>
+    -->
     <td>
 	    <h2>Support</h2>  
 	    <a class='main' href='{relocatable: ../support.html}'>

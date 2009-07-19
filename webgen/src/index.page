@@ -4,47 +4,103 @@ in_menu: true
 sort_info: 1
 --- name:overview pipeline:haml,tags
 
-%h1 {project_name:}
-
+%h1 Home
 {project_slogan:}
 
---- name:spot 
-<div class='title'>
-  &nbsp;
-</div>
-<div class='content'>
-  <table><tr>
-    <td>
-	    <h2>Learn More</h2>
-	    <a class='main' href='{relocatable: /documentation}'>
-  	    <img src='{relocatable: /images/spot-learn-more.jpg}'/>
-  	    <br />
-  	    Documentation
-	    </a>
-    </td>
-    <td>
-	    <h2>Get Started</h2>  
-	    <a class='main' href='{relocatable: /download.html}'>
-  	    <img src='{relocatable: /images/spot-download-releases.jpg}' />
-  	    <br />
-  	    Get the latest version here
-	    </a>
-    </td>
-    <td>
-    <h2>Get Involved</h2>  
-	    <div class='spot-balloon'>
-	      <ul>
-	        <li><a href="{project_forums_url:}">Forums</a></li>
-	        <li><a href="{project_issue_url:}">Issue Tracker</a></li>
-	        <li><a href="{project_wiki_url:}">Wiki</a></li>
-	        <li><a href="{relocatable: /source.html}">Source Code</a></li>
-	      </ul>
-	    </div>
-	    <a class='main' href='{project_forums_url:}'>
-  	    Join the community!
-	    </a>
-    </td>
-  </tr></table>
-</div>
---- name:content
+--- name:content pipeline:haml,tags
 
+.left
+  %h1 What is {project_name:}?
+.right
+  %p
+    {project_name:} is a small java library that allows you to do Java Remote Method 
+    Invocations 
+    %a{:href=>'http://java.sun.com/docs/books/tutorial/rmi/overview.html'} (RMI)
+    via a Java Message Service
+    %a{:href=>'http://java.sun.com/products/jms/tutorial/1_3_1-fcs/doc/basics.html'} (JMS)
+    provider like 
+    %a{:href=>'http://fusesource.com/products/enterprise-activemq'} ActiveMQ
+    \.
+
+  %p
+    Why do that?  If you like the simplicity of the RMI programing model,
+    but hate the short comings of 
+    %a{:href=>'http://en.wikipedia.org/wiki/Java_Remote_Method_Protocol'} JRMP 
+    \ (the default socket based protocol used by RMI).  Lets compare 
+    {project_name:} and JRMP.
+    
+  %h4 Firewall Configuration Complexity
+
+  %table
+    %tr
+      %th Standard RMI
+      %td
+        Large RMI deployments present a Firewall management nightmare.  RMI clients
+        have to be able to TCP connect to dynamic network ports on the hosts exposing 
+        objects for remote invocation. When using client callbacks, severs need to 
+        be able to connect to the dynamic network ports on the client.
+    %tr
+      %th {project_name:} 
+      %td
+        When used with ActiveMQ, RMI clients and servers (even when using client callbacks)
+        just need to be able to connect to 1 well known port on the JMS server.  Could be
+        more complex based on JMS provider, but most providers do support the simple
+        centralized server deployment.
+    
+  %h4 Network Robustness
+
+  %table
+    %tr
+      %th Standard RMI
+      %td
+        TCP based, so network errors are quickly reported to the client.  Does not load balance
+        over many nodes and cannot fail over requests to other nodes.
+    %tr
+      %th {project_name:} 
+      %td
+        Network failures are handled by the JMS provider.  Requests can load balance across 
+        multiple nodes.  Requests from a failed node can be processed by another node.
+        
+.left
+  %h1 Getting Started
+.right
+  %p
+    If you have an existing RMI application, to switch it to use {project_name:} you need to 
+    search for where you have used `java.rmi.server.UnicastRemoteObject` and replace it 
+    with `org.fusesource.rmiviajms.JMSRemoteObject`. 
+  %p
+    For example, if you had the following server object:
+
+    :plain
+      {coderay::java}
+      public class HelloWorldCallback 
+          extends UnicastRemoteObject 
+          implements IHelloWorldCallback {
+          
+          HelloWorldCallback() throws RemoteException {
+          }
+          public void execute(String value) {
+            System.out.println("Hello World: "+value);
+          }
+      }
+      {coderay}
+
+    You would change it to:
+    
+    :plain
+      {coderay::java}
+      public class HelloWorldCallback 
+          extends JMSRemoteObject 
+          implements IHelloWorldCallback {
+          HelloWorldCallback() throws RemoteException {
+          }
+          public void execute(String value) {
+            System.out.println("Hello World: "+value);
+          }
+      }
+      {coderay}
+    
+  %p
+
+    
+    
