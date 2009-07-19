@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (C) 2009, Progress Software Corporation and/or its 
+  subsidiaries or affiliates.  All rights reserved.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+    http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.fusesource.rmiviajms</groupId>
+  <artifactId>rmiviajms</artifactId>
+  <packaging>jar</packaging>
+  
+  <name>rmiviajms</name>
+  <version>1.0-SNAPSHOT</version>
+  <description>rmiviajms provides reliable RMI services over JMS.</description>
+  <url>http://rmiviajms.fusesource.org</url>
+  
+  <inceptionYear>2009</inceptionYear>
+
+  <issueManagement>
+    <system>jira</system>
+    <url>http://fusesource.com/issues/browse/RMIVIAJMS</url>
+  </issueManagement>
+  <mailingLists>
+    <mailingList>
+      <name>rmiviajms dev</name>
+      <post>rmiviajms-dev@fusesource.org</post>
+      <subscribe>rmiviajms-dev-subscribe@fusesource.org</subscribe>
+    </mailingList>
+    <mailingList>
+      <name>rmiviajms commits</name>
+      <post>rmiviajms-commits@fusesource.org</post>
+      <subscribe>rmiviajms-commits-subscribe@fusesource.org</subscribe>
+    </mailingList>
+  </mailingLists>
+
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+  
+  <scm>
+    <connection>scm:git:git://forge.fusesource.com/rmiviajms.git</connection>
+    <developerConnection>scm:git:ssh://git@forge.fusesource.com/rmiviajms.git</developerConnection>
+    <url>http://fusesource.com/forge/gitweb?p=rmiviajms.git</url>
+  </scm>
+  
+  <distributionManagement>
+    <repository>
+      <id>release.fusesource.org</id>
+      <name>RestMQ Release Repository</name>
+      <url>dav:http://fusesource.com/forge/dav/rmiviajms/repo/release</url>
+    </repository>
+    <snapshotRepository>
+      <uniqueVersion>false</uniqueVersion>
+      <id>snapshot.fusesource.org</id>
+      <name>RestMQ Snapshot Repository</name>
+      <url>dav:http://fusesource.com/forge/dav/rmiviajms/repo/snapshot</url>
+    </snapshotRepository>
+    <site>
+      <id>website.fusesource.org</id>
+      <name>website</name>
+      <url>dav:http://fusesource.com/forge/dav/rmiviajms/maven/${project.version}</url>
+    </site>
+  </distributionManagement>  
+  
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.geronimo.specs</groupId>
+      <artifactId>geronimo-jms_1.1_spec</artifactId>
+      <version>1.1.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.activemq</groupId>
+      <artifactId>activemq-core</artifactId>
+      <version>5.2.0</version>
+      <optional>true</optional>
+    </dependency>
+  </dependencies>
+
+  <build>
+  
+    <extensions>
+      <extension>
+        <groupId>org.apache.maven.wagon</groupId>
+        <artifactId>wagon-webdav-jackrabbit</artifactId>
+        <version>1.0-beta-5</version>
+      </extension>
+    </extensions>
+      
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemProperties>
+            <property>
+              <name>java.security.policy</name>
+              <value>${basedir}/src/test/resources/all.policy</value>
+            </property>
+          </systemProperties>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.5</source>
+          <target>1.5</target>
+        </configuration>
+      </plugin>
+      
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <version>2.0.0</version>
+        <executions>
+          <execution>
+            <id>bundle-manifest</id>
+            <phase>process-classes</phase>
+            <goals>    
+              <goal>manifest</goal>
+            </goals>   
+            <configuration>
+              <instructions>
+                  <Import-Package>!org.fusesource.rmiviajms*,com.sun.jna;resolution:=optional,sun.reflect;resolution:=optional,*</Import-Package>
+              </instructions>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>  
+            <manifestFile>${project.build.outputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+          </archive> 
+        </configuration>
+      </plugin>  
+      
+    </plugins>
+  </build>
+
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>jxr-maven-plugin</artifactId>
+        <configuration>
+          <aggregate>true</aggregate>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <configuration>
+          <excludePackageNames>*.internal</excludePackageNames>
+          <aggregate>true</aggregate>
+          <linksource>true</linksource>
+          <links>
+            <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
+            <link>https://jna.dev.java.net/nonav/javadoc</link>
+          </links>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-pmd-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>mailing-list</report>
+              <report>issue-tracking</report>
+              <report>license</report>
+              <report>scm</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>surefire-report-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </reporting>
+
+</project>
