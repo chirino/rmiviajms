@@ -1,0 +1,11 @@
+\--- !omap
+- /javadoc.html:
+    title: Javadoc
+    in_menu: false
+    sort_info: 60
+    url: http://rmiviajms.fusesource.org/maven/1.0-SNAPSHOT/apidocs/index.html
+- /maven/index.html:
+    title: Maven Reports
+    in_menu: true
+    sort_info: 5
+    url: http://rmiviajms.fusesource.org/maven/1.0-SNAPSHOT/index.html
