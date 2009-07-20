@@ -22,11 +22,19 @@ All the information you need to be become and expert with {project_name:}
       </a>
     </td>
     <td>
+      <h2>Maven Reports</h2>
+      <a class='main' href='{relocatable: /maven/index.html}'>
+        <img src='{relocatable: /images/maven.jpg}'/>
+        <br />
+        For you Maven Lovers
+      </a>
+    </td>    
+    <td>
       <h2>F.A.Q.</h2>
       <a class='main' href='{relocatable: faq.html}'>
         <img src='{relocatable: /images/lightbulb.jpg}'/>
         <br />
-        Frequently Asked Questions
+        Frequently <br/>Asked <br/>Questions
       </a>
     </td>
     <td>
@@ -34,7 +42,7 @@ All the information you need to be become and expert with {project_name:}
 	    <a class='main' href='{relocatable: ../support.html}'>
   	    <img src='{relocatable: /images/support.jpg}' />
   	    <br />
-  	    How to get more support on  {project_name:}
+  	    How to get more <br/> support on  <br/> {project_name:}
 	    </a>
     </td>
   </tr></table>

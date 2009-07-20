@@ -1,6 +1,6 @@
 ---
 title: Blog
-in_menu: true
+in_menu: false
 sort_info: 7
 --- name:head pipeline:tags
 <link rel="alternate" title="{project_name:} RSS" href="{relocatable:index.rss}" type="application/rss+xml">
