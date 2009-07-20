@@ -59,11 +59,10 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
         while( running.get() ) {
             try {
                 Session session = template.getSession();
-                MessageProducer producer = template.getMessageProducer();
                 MessageConsumer consumer = template.getMessageConsumer(ref.getDestination());
                 Message msg = consumer.receive(500);
                 if( msg!=null ) {
-                    if( "request".equals(msg.getJMSType()) ) {
+                    if( JMSRemoteSystem.MSG_TYPE_REQUEST.equals(msg.getJMSType()) ) {
                         // Handle decoding the message in the dispatch thread.
                         remoteSystem.getDispatchThreads().execute(new DispatchTask((ObjectMessage)msg));
                     }

@@ -186,7 +186,6 @@ public abstract class JMSRemoteSystem {
     private void receiveAndDispatch() throws Exception {
         try {
             Session session = receiveTemplate.getSession();
-            MessageProducer producer = receiveTemplate.getMessageProducer();
             MessageConsumer consumer = receiveTemplate.getMessageConsumer();
             Message msg = consumer.receive(500);
             if( msg!=null ) {
