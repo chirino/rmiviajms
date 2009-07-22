@@ -26,15 +26,17 @@ import java.rmi.ServerError;
 final class RequestExchange implements Runnable {
 
     private final JMSRemoteRef remoteRef;
+    private final boolean oneway;
     private final Request request;
     private final AtomicBoolean canceled = new AtomicBoolean(false);
     private final CountDownLatch completed = new CountDownLatch(1);
     private final AtomicReference<Response> response = new AtomicReference<Response>();
     private JMSRemoteSystem remoteSystem;
 
-    public RequestExchange(JMSRemoteSystem remoteSystem, JMSRemoteRef remoteRef, String signature, Object[] params) {
+    public RequestExchange(JMSRemoteSystem remoteSystem, JMSRemoteRef remoteRef, String signature, Object[] params, boolean oneway) {
         this.remoteSystem = remoteSystem;
         this.remoteRef = remoteRef;
+        this.oneway = oneway;
         this.request = new Request(remoteRef.getObjectId(), signature, params, remoteSystem.requestCounter.incrementAndGet());
     }
 
@@ -74,38 +76,58 @@ final class RequestExchange implements Runnable {
             return;
 
         ObjectMessage msg=null;
-        remoteSystem.requests.put(request.requestId, this);
-        while( !canceled.get() && remoteSystem.running.get() ) {
-            try {
-                Session session = remoteSystem.sendTemplate.getSession();
-                MessageProducer producer = remoteSystem.sendTemplate.getMessageProducer();
-                if( msg==null ) {
-                    try {
-                        msg = session.createObjectMessage(request);
-                    } catch (JMSException e) {
-                        throw new MarshalException("Could not marshall request: "+e.getMessage(), e);
+        if( !oneway ) {
+            remoteSystem.requests.put(request.requestId, this);
+        }
+        try {
+            while( !canceled.get() && remoteSystem.running.get() ) {
+                try {
+                    if (msg == null) {
+                        // To go faster most JMS providers should let use do the following
+                        // in original thread.. but to stay true to the spec, we are doing
+                        // it in the sending thread to avoid multi-threaded session access.
+                        try {
+                            Session session = remoteSystem.sendTemplate.getSession();
+                            msg = session.createObjectMessage(request);
+                            msg.setLongProperty(JMSRemoteSystem.MSG_PROP_OBJECT, request.objectId);
+                            if( oneway ) {
+                                msg.setJMSType(JMSRemoteSystem.MSG_TYPE_ONEWAY);
+                            } else {
+                                msg.setJMSType(JMSRemoteSystem.MSG_TYPE_REQUEST);
+                                msg.setJMSReplyTo(remoteSystem.sendTemplate.getLocalSystemQueue());
+                            }
+                        } catch (JMSException e) {
+                            throw new MarshalException("Could not marshall request: " + e.getMessage(), e);
+                        }
                     }
-                }
-                
-                Destination destination = remoteRef.getDestination();
-                msg.setLongProperty(JMSRemoteSystem.MSG_PROP_OBJECT, request.objectId);
-                msg.setJMSType(JMSRemoteSystem.MSG_TYPE_REQUEST);
-                msg.setJMSReplyTo(remoteSystem.sendTemplate.getLocalSystemQueue());
-                producer.send(destination, msg, DeliveryMode.NON_PERSISTENT, 4, 0);
-                return;
 
-            } catch ( RemoteException e ) {
-                setResponse(new Response(request.requestId, null, e));
-                return;
-            } catch ( Exception e ) {
-                e.printStackTrace();
-                remoteSystem.sendTemplate.reset();
-                // TODO: should we sleep?
+                    Destination destination = remoteRef.getDestination();
+                    MessageProducer producer = remoteSystem.sendTemplate.getMessageProducer();
+                    producer.send(destination, msg, DeliveryMode.NON_PERSISTENT, 4, 0);
+                    return;
+
+
+                } catch (RemoteException e) {
+                    setResponse(new Response(request.requestId, null, e));
+                    return;
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    remoteSystem.sendTemplate.reset();
+                    // TODO: should we sleep?
+                }
+            }
+        } finally {
+            if( oneway ) {
+                // Lests the calling thread continue.. (since it won't be getting a response).
+                setResponse(new Response(0, null, null));
             }
         }
         if ( canceled.get() ) {
-            remoteSystem.requests.remove(request.requestId);
+            if( !oneway ) {
+                remoteSystem.requests.remove(request.requestId);
+            }
         }
+
 
     }
 }

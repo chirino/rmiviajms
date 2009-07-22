@@ -19,11 +19,13 @@ import javax.jms.JMSException;
  */
 final class DispatchTask implements Runnable {
     private final ObjectMessage msg;
-    private JMSRemoteSystem remoteSystem;
+    private final boolean oneway;
+    private final JMSRemoteSystem remoteSystem;
 
-    public DispatchTask(JMSRemoteSystem remoteSystem, ObjectMessage msg) {
+    public DispatchTask(JMSRemoteSystem remoteSystem, ObjectMessage msg, boolean oneway) {
         this.remoteSystem = remoteSystem;
         this.msg = msg;
+        this.oneway = oneway;
     }
 
     public void run() {
@@ -33,7 +35,9 @@ final class DispatchTask implements Runnable {
             Thread.currentThread().setContextClassLoader(exportedObject.target.getClass().getClassLoader());
             Request request = (Request)(msg).getObject();
             Response response = exportedObject.invoke(request);
-            remoteSystem.sendResponse(request, response);
+            if( !oneway ) {
+                remoteSystem.sendResponse(msg.getJMSReplyTo(), request, response);
+            }
         } catch (JMSException e) {
             // The request message must not have been properly created.. ignore for now.
         }

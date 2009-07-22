@@ -14,13 +14,12 @@ import junit.framework.TestCase;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.rmi.server.UnicastRemoteObject;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.command.ActiveMQQueue;
-import org.fusesource.rmiviajms.internal.JMSRemoteSystem;
 
 import javax.jms.Destination;
 
@@ -34,6 +33,9 @@ public class JMSRemoteObjectTest extends TestCase {
     public static interface IHelloWorld extends Remote {
         public String hello() throws RemoteException;
         public void world(IHelloWorldCallback callback) throws RemoteException;
+
+        @Oneway
+        void slowOnewayOperations(int value) throws RemoteException, InterruptedException;
     }
 
     public  static interface IHelloWorldCallback extends Remote {
@@ -41,6 +43,9 @@ public class JMSRemoteObjectTest extends TestCase {
     }
 
     public static class HelloWorld implements IHelloWorld {
+        AtomicLong value = new AtomicLong();
+        CountDownLatch latch = new CountDownLatch(1);
+
         public String hello() {
             return "hello";
         }
@@ -48,6 +53,13 @@ public class JMSRemoteObjectTest extends TestCase {
         public void world(IHelloWorldCallback callback) throws RemoteException {
             callback.execute("world");
         }
+
+        public void slowOnewayOperations(int value) throws InterruptedException {
+            Thread.sleep(1000);
+            this.value.addAndGet(value);
+            latch.countDown();
+        }
+
     }
 
     public static class HelloWorldCallback extends JMSRemoteObject implements IHelloWorldCallback {
@@ -126,4 +138,35 @@ public class JMSRemoteObjectTest extends TestCase {
 
     }
 
+    public void testOneway() throws RemoteException, InterruptedException {
+        HelloWorld object = new HelloWorld();
+        IHelloWorld proxy = (IHelloWorld)JMSRemoteObject.exportObject(object);
+
+        // oneways will return before the remote invocation completes.
+        proxy.slowOnewayOperations(1);
+        assertEquals(0, object.value.get());
+
+        // Now wait for it to complete...
+        assertTrue(object.latch.await(2, TimeUnit.SECONDS));
+        assertEquals(1, object.value.get());
+    }
+
+    static public interface IBadOneWay extends Remote{
+        @Oneway
+        String badMethod() throws RemoteException;
+    }
+    static public class BadOneWay implements IBadOneWay {
+        public String badMethod() throws RemoteException {
+            return null;
+        }
+    }
+
+    public void testInvalidOneway() throws RemoteException, InterruptedException {
+        try {
+            BadOneWay object = new BadOneWay();
+            JMSRemoteObject.exportObject(object);
+            fail("Expected RemoteException");
+        } catch (RemoteException expected) {
+        }
+    }
 }

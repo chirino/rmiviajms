@@ -10,13 +10,14 @@
  */
 package org.fusesource.rmiviajms.internal;
 
+import org.fusesource.rmiviajms.Oneway;
+
 import javax.jms.Destination;
 import java.rmi.server.*;
 import java.rmi.RemoteException;
 import java.rmi.Remote;
 import java.io.*;
 import java.lang.reflect.Method;
-import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -75,7 +76,7 @@ final public class JMSRemoteRef implements RemoteRef {
                 rc.add(interf);
             }
         }
-        // Also add interfaces in the super classes...
+        // Also slowOnewayOperations interfaces in the super classes...
         if( clazz.getSuperclass()!=null ) {
             collectRemoteInterfaces(clazz.getSuperclass(), rc);
         }
@@ -96,7 +97,11 @@ final public class JMSRemoteRef implements RemoteRef {
             }
         }
         if( !throwsRemoteException ) {
-            throw new ExportException("Invlaid Remote interface "+method.getDeclaringClass().getName()+" method "+method.getName()+" does not throw a RemoteException");
+            throw new ExportException("Invalid Remote interface "+method.getDeclaringClass().getName()+" method "+method.getName()+" does not throw a RemoteException");
+        }
+
+        if( method.isAnnotationPresent(Oneway.class) && method.getReturnType() != void.class ) {
+            throw new ExportException("Invalid Remote interface "+method.getDeclaringClass().getName()+" method "+method.getName()+" is annotated with @Oneway so it must return void");
         }
     }
 

@@ -10,6 +10,8 @@
  */
 package org.fusesource.rmiviajms.internal;
 
+import org.fusesource.rmiviajms.Oneway;
+
 import javax.jms.*;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
@@ -30,6 +32,7 @@ public abstract class JMSRemoteSystem {
     public static final String REMOTE_SYSTEM_CLASS = System.getProperty("org.fusesource.rmiviajms.REMOTE_SYSTEM_CLASS", "org.fusesource.rmiviajms.internal.ActiveMQRemoteSystem");
     public static final long REQUEST_TIMEOUT = new Long(System.getProperty("org.fusesource.rmiviajms.REQUEST_TIMEOUT", ""+Long.MAX_VALUE));
 
+    protected static final String MSG_TYPE_ONEWAY = "rmi:oneway";
     protected static final String MSG_TYPE_REQUEST = "rmi:request";
     protected static final String MSG_TYPE_RESPONSE = "rmi:response";
 
@@ -169,9 +172,14 @@ public abstract class JMSRemoteSystem {
     }
 
     public Object invoke(JMSRemoteRef JMSRemoteRef, Method method, Object[] params) throws Exception {
-        // Kicks off the receiver thread...
-        kickReceiveThread();
-        RequestExchange requestExchange = new RequestExchange(this, JMSRemoteRef, signature(method), params);
+
+        boolean oneway = method.isAnnotationPresent(Oneway.class);
+
+        if( !oneway ) {
+            // Kicks off the receiver thread...
+            kickReceiveThread();
+        }
+        RequestExchange requestExchange = new RequestExchange(this, JMSRemoteRef, signature(method), params, oneway);
         getSenderThread().execute(requestExchange);
         try {
             return requestExchange.getResult(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
@@ -191,9 +199,11 @@ public abstract class JMSRemoteSystem {
             if( msg!=null ) {
                 if( MSG_TYPE_REQUEST.equals(msg.getJMSType()) ) {
                     // Handle decoding the message in the dispatch thread.
-                    getDispatchThreads().execute(new DispatchTask(this, (ObjectMessage)msg));
-                }
-                if( MSG_TYPE_RESPONSE.equals(msg.getJMSType()) ) {
+                    getDispatchThreads().execute(new DispatchTask(this, (ObjectMessage)msg, false));
+                } else if( MSG_TYPE_ONEWAY.equals(msg.getJMSType()) ) {
+                    // Handle decoding the message in the dispatch thread.
+                    getDispatchThreads().execute(new DispatchTask(this, (ObjectMessage)msg, true));
+                } else if( MSG_TYPE_RESPONSE.equals(msg.getJMSType()) ) {
                     try {
                         long request = msg.getLongProperty(MSG_PROP_REQUEST);
                         RequestExchange target = requests.remove(request);
@@ -219,7 +229,7 @@ public abstract class JMSRemoteSystem {
         }
     }
 
-    void sendResponse(final Request request, final Response response) {
+    void sendResponse(final Destination destination, final Request request, final Response response) {
         getSenderThread().execute(new Runnable(){
             public void run() {
                 ObjectMessage msg=null;
@@ -236,8 +246,7 @@ public abstract class JMSRemoteSystem {
                         }
                         msg.setLongProperty(MSG_PROP_REQUEST, request.requestId);
                         msg.setJMSType(MSG_TYPE_RESPONSE);
-                        msg.setJMSReplyTo(sendTemplate.getLocalSystemQueue());
-                        producer.send(msg.getJMSReplyTo(), msg, DeliveryMode.NON_PERSISTENT, 4, 0);
+                        producer.send(destination, msg, DeliveryMode.NON_PERSISTENT, 4, 0);
                         return;
                     } catch ( Exception e ) {
                         sendTemplate.reset();
