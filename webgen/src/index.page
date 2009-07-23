@@ -99,8 +99,10 @@ sort_info: 1
           }
       }
       {coderay}
-    
-  %p
 
+  %p
+    See the 
+    %a{:href=>'{relocatable:/documentation/manual/book.html}'} User Guide
+    For more examples.
     
     

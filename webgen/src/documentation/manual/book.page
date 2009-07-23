@@ -51,55 +51,190 @@ invocations which can provide nice performance boosts for some use cases.
 Getting Started
 -----------------
 
-You first need to add the http://{project_id:}.fusesource.org/repo/snapshot/org/fusesource/{project_id:}/{project_id:}/{project_version:}/{project_id:}-{project_version:}.jar[+{project_id:}-{project_version:}.jar+] file to the classpath of your clients and server applications.
+You first need to add the
+http://{project_id:}.fusesource.org/repo/snapshot/org/fusesource/{project_id:}/{project_id:}/{project_version:}/{project_id:}-{project_version:}.jar[+{project_id:}-{project_version:}.jar+]
+file to the classpath of your clients and server applications.
 
-Next you need to modify the existing RMI applications to export remote objects using {project_name:} instead of exporting over the standard RMI protocol.  Generally is just a simple search and replace of +UnicastRemoteObject+ with +JMSRemoteObject+.  The <<DeveloperGuide,Developer Guide>> section goes into more details on how to do this.
+Next you need to modify the existing RMI applications to export remote objects
+using {project_name:} instead of exporting over the standard RMI protocol.
+Generally is just a simple search and replace of +UnicastRemoteObject+ with
++JMSRemoteObject+. The <<DeveloperGuide,Developer Guide>> section goes into
+more details on how to do this.
 
-Finally, when you start your applications you will need to pass some configuration settings via system properties so that {project_name:} runtime knows how to connect to your JMS provider.  The default settings try to connect to an *ActiveMQ* server at +tcp://localhost:61616+. 
+Finally, when you start your applications you will need to pass some
+configuration settings via system properties so that {project_name:} runtime
+knows how to connect to your JMS provider. The default settings try to connect
+to an *ActiveMQ* server at +tcp://localhost:61616+.
 
 
 [DeveloperGuide]
 Developer Guide
 -----------------
 
-RMI server objects commonly extend +UnicastRemoteObject+. Objects which extend +UnicastRemoteObject+ are bound in RMI as soon as they are constructed.  An example of this case is shown in <<listing-2.1>> and <<listing-2.2>> shows how it should be updated to use {project_name:} instead.
+Converting From Standard RMI
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-[[listing-2.1]]
-.2.1 Standard RMI Example
+Subclasses of +UnicastRemoteObject+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+RMI server objects commonly extend +UnicastRemoteObject+. Objects which extend
++UnicastRemoteObject+ are bound in RMI as soon as they are constructed. The
+following listing shows an example of this use case:
+
 [source,java]
 -----------------------------------------------------
 import java.rmi.server.UnicastRemoteObject;
-public class HelloWorldCallback 
-    extends UnicastRemoteObject                    
-    implements IHelloWorldCallback {
+...
+public class HelloWorld 
+    extends UnicastRemoteObject             // <1>       
+    implements IHelloWorld {
     
-    HelloWorldCallback() throws RemoteException {
+    HelloWorld()                    
+      throws RemoteException {              // <2>
     }
-    public void execute(String value) {
-      System.out.println("Hello World: "+value);
+    
+    HelloWorld(int port)            
+       throws RemoteException {
+       super(port);                         // <3>
     }
-}
+...    
 -----------------------------------------------------
+<1> The class extends +UnicastRemoteObject+.
+<2> Even the default constructor must throw a +RemoteException+.
+<3> There is an optional constructor to bind the object to specific TCP port.
 
-[[listing-2.2]]
-.2.2 {project_name:} Example
+The following listing shows you how to convert that server object to use
+{project_name:}.
+
 [source,java]
 -----------------------------------------------------
-import org.fusesource.rmiviajms.JMSRemoteObject
-
-public class HelloWorldCallback 
-    extends JMSRemoteObject                       
-    implements IHelloWorldCallback {
+import org.fusesource.rmiviajms.JMSRemoteObject;
+import javax.jms.Destination;
+...
+public class HelloWorld 
+    extends JMSRemoteObject                 // <1>       
+    implements IHelloWorld {
     
-    HelloWorldCallback() throws RemoteException {
+    HelloWorld()                    
+      throws RemoteException {              // <2>
     }
-    public void execute(String value) {
-      System.out.println("Hello World: "+value);
+    
+    HelloWorld(Destination dest)            
+       throws RemoteException {
+       super(dest);                         // <3>
     }
+...    
+-----------------------------------------------------
+
+<1> Extend the +JMSRemoteObject+ class
+<2> Default constructors remain the same.
+<3> Binding to TCP port does not make sense in the JMS world.  Instead you 
+bind to a JMS Destination object.
+
+Classes exported by +UnicastRemoteObject+
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Remote server objects don't have to subclass +UnicastRemoteObject+. Since they
+don't subclass +UnicastRemoteObject+, then they will not be bound in RMI until
+you explicitly bind them using the +UnicastRemoteObject.exportObject+ static
+method. For example, if you have the following class:
+
+[source,java]
+-----------------------------------------------------
+public class HelloWorld 
+    implements IHelloWorld {
+...    
 }
 -----------------------------------------------------
 
-Remote objects don't always extend +UnicastRemoteObject+.  In these cases, applications call the +UnicastRemoteObject.exportObject+ method.  Those calls need to be replaced with a +JMSRemoteObject.exportObject+ call.  
+Then then following listing shows two ways to export RMI objects which do not
+extend +UnicastRemoteObject+.
+
+[source,java]
+-----------------------------------------------------
+public void simple() {
+   HelloWorld hw = new HelloWorld();
+   IHelloWorld proxy = 
+      (IHelloWorld)UnicastRemoteObject.exportObject(hw);         // <1>
+   ...
+}
+public void advanced() {
+   HelloWorld hw = new HelloWorld();
+   int port = 1021;
+   IHelloWorld proxy = 
+       (IHelloWorld)UnicastRemoteObject.exportObject(hw, port);  // <2>
+   ...    
+}
+--------------------------------------------------
+
+<1> Binds the object on an anonymous port
+<2> Binds the object to a specific TCP port
+
+NOTE: The +exportObject+ method call returns a proxy object. This object can be
+serialized and sent to clients so that they perform remote invocations on that
+instance of the +HelloWorld+ object. Typically RMI applications register this
+proxy in an RMI Registry.
+
+
+The following listing shows you how to convert that code to bind the object
+using {project_name:}.
+
+[source,java]
+-----------------------------------------------------
+public void simple() {
+   HelloWorld hw = new HelloWorld();
+   IHelloWorld proxy = 
+      (IHelloWorld)JMSRemoteObject.exportObject(hw);         // <1>
+   ...
+}
+public void advanced() {
+   HelloWorld hw = new HelloWorld();
+   Destination dest = ...
+   IHelloWorld proxy = 
+       (IHelloWorld)JMSRemoteObject.exportObject(hw, port);  // <2>
+   ...    
+}
+--------------------------------------------------
+<1> A simple class name change is all that is need 
+<2> Once again, binding to a TCP does not makes sense in JMS, instead you bind 
+to a specific JMS Destination.
+
+Additional Features
+~~~~~~~~~~~~~~~~~~~
+
+The Oneway Annotation
+^^^^^^^^^^^^^^^^^^^^^
+
+{project_name:} supports asynchronous remote method invocations. What this means
+is that the client issues a remote method invocation and does not wait for the
+server to complete it. This feature can be leverage in several use cases. The
+obvious one is when the server method take a long time to complete, but the client
+is not really interested waiting for that completion. The other less obvious use
+case is to increase remote method invocation throughput.
+
+Standard remote method invocations are synchronous and there is built in wait
+since the client has to wait for the response of the sever. The amount of time you
+wait is based on response latency/network latency. Even if you are running on a
+1000Mb Ethernet, your latency will probably be about the same as if you were
+running 100Mb Ethernet. But if you use asynchronous remote method invocations, the
+client can issue requests as fast as the network can accept them. So can issue
+requests much faster, network bandwidth is your main limiter.
+
+To configure a method to use asynchronous remote method invocations, you just need
+to annotate the Remote method interface with the +@Oneway+ annotation. For
+example:
+
+[source,java]
+-----------------------------------------------------
+import org.fusesource.rmiviajms.Oneway;
+...
+public static interface ITest extends Remote {
+    @Oneway
+    void slowOp(int value) throws RemoteException;
+}
+--------------------------------------------------
+
+NOTE: Methods annotated wiht +@Oneway+ must return void.  It does not make sense to return a value if you are not going to wait for it's result.
 
 [SystemProperties]
 System Properties
