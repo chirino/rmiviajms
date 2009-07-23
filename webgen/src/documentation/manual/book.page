@@ -1,28 +1,142 @@
 ---
-title: MyProject User Guide
+title: RMI via JMS User Guide
 --- name:head pipeline:tags
 <link href="{relocatable: book.css}" rel="stylesheet" type="text/css" />
 
 --- name:content pipeline:tags,asciidoc
 
 {title:}
-====================
+========================
 Hiram Chirino
-v1.0, Dec 2003
+:Author Initials: HRC
+{project_version:}, 2009
 
-Preface
--------
+{project_name:} is a small java library that allows you to do Java Remote
+Method Invocations (RMI) via a Java Message Service (JMS) provider like
+ActiveMQ. RMI is still the simplest and most accessible distributed programing
+models available to Application developers. When used via {project_name:}, all
+remote RMI objects are bound to destinations on the JMS message bus. This
+allows you to leverage the message bus to achieve better availability and
+scaleability.
 
-This user guide is currently under active development!
+[Introduction]
+Introduction 
+-------------- 
 
-Chapter 1
----------
+RMI provides a easy to use distributed computing API that is built into every
+JVM. There are few distributed technologies which provide and easier use
+distributed model. Furthermore, RMI is lightweight. Since it's built into the
+JVM you don't need to run in sever containers. A simple Main will do, thank
+you.
 
-TODO!
+The problem is eventually folks start avoiding RMI due to it being point to
+point client server architecture. Point to point architectures bind a client to
+a specific sever node. In todays day and age, server outages have to be part of
+the standard operating parameters. In RMI land, this mean the clients tend have
+a tremendous amount of code to detect and handle request failures. There is no
+built in mechanism to fail over to another node in a server cluster.
+
+It's a well known fact that system administrators HATE RMI. That hate is due to
+RMI based servers tending to use random TCP ports for their services. It makes
+it nearly impossible for them to properly lock down the servers with a firewall
+configuration.
+
+By using RMI via JMS, this project aims to eliminate those problems. Don't
+assume this is a silver bullet for RMI woes. This project does not try to
+address some of the other problems that RMI has like, fragile service
+versioning. But, it does throw in some nice bonus features like Oneway remote
+invocations which can provide nice performance boosts for some use cases.
+
+[GettingStarted]
+Getting Started
+-----------------
+
+You first need to add the http://{project_id:}.fusesource.org/repo/snapshot/org/fusesource/{project_id:}/{project_id:}/{project_version:}/{project_id:}-{project_version:}.jar[+{project_id:}-{project_version:}.jar+] file to the classpath of your clients and server applications.
+
+Next you need to modify the existing RMI applications to export remote objects using {project_name:} instead of exporting over the standard RMI protocol.  Generally is just a simple search and replace of +UnicastRemoteObject+ with +JMSRemoteObject+.  The <<DeveloperGuide,Developer Guide>> section goes into more details on how to do this.
+
+Finally, when you start your applications you will need to pass some configuration settings via system properties so that {project_name:} runtime knows how to connect to your JMS provider.  The default settings try to connect to an *ActiveMQ* server at +tcp://localhost:61616+. 
+
+
+[DeveloperGuide]
+Developer Guide
+-----------------
+
+RMI server objects commonly extend +UnicastRemoteObject+. Objects which extend +UnicastRemoteObject+ are bound in RMI as soon as they are constructed.  An example of this case is shown in <<listing-2.1>> and <<listing-2.2>> shows how it should be updated to use {project_name:} instead.
+
+[[listing-2.1]]
+.2.1 Standard RMI Example
+[source,java]
+-----------------------------------------------------
+import java.rmi.server.UnicastRemoteObject;
+public class HelloWorldCallback 
+    extends UnicastRemoteObject                    
+    implements IHelloWorldCallback {
+    
+    HelloWorldCallback() throws RemoteException {
+    }
+    public void execute(String value) {
+      System.out.println("Hello World: "+value);
+    }
+}
+-----------------------------------------------------
+
+[[listing-2.2]]
+.2.2 {project_name:} Example
+[source,java]
+-----------------------------------------------------
+import org.fusesource.rmiviajms.JMSRemoteObject
+
+public class HelloWorldCallback 
+    extends JMSRemoteObject                       
+    implements IHelloWorldCallback {
+    
+    HelloWorldCallback() throws RemoteException {
+    }
+    public void execute(String value) {
+      System.out.println("Hello World: "+value);
+    }
+}
+-----------------------------------------------------
+
+Remote objects don't always extend +UnicastRemoteObject+.  In these cases, applications call the +UnicastRemoteObject.exportObject+ method.  Those calls need to be replaced with a +JMSRemoteObject.exportObject+ call.  
+
+[SystemProperties]
+System Properties
+-------------------
+
+.Property: +org.fusesource.rmiviajms.REMOTE_SYSTEM_CLASS+
+=====================================================================
+[horizontal]
+*Default*:: +org.fusesource.rmiviajms.internal.ActiveMQRemoteSystem+
+*Description*:: Set this property to the right class implementation for your JMS provider.
+=====================================================================
+
+.Property: +org.fusesource.rmiviajms.REQUEST_TIMEOUT+
+=====================================================================
+[horizontal]
+  *Default*:: +Long.MAX_VALUE+
+  *Description*:: The maximum about of time to wait for remote invocation response in milliseconds.
+=====================================================================
+
+.Property: +org.fusesource.rmiviajms.CONNECT_URL+
+=====================================================================
+[horizontal]
+*Default*:: +tcp://localhost:61616+
+*Description*:: The URL used to connect to the JMS provider.
+=====================================================================
+
+.Property: +org.fusesource.rmiviajms.QUEUE_PREFIX+
+=====================================================================
+[horizontal]
+*Default*:: +rmiviajms.+
+*Description*:: Destination queues automatically be prefixed with this value.
+=====================================================================
+
 
 Index
 -----
 ////////////////////////////////////////////////////////////////
-Empty for now.
+Coming soon.
 ////////////////////////////////////////////////////////////////
 

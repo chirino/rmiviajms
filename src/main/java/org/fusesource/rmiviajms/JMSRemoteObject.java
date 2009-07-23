@@ -47,12 +47,7 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
     }
 
     public static Remote exportObject(Remote obj) throws RemoteException {
-        JMSRemoteRef ref = new JMSRemoteRef();
-        if (obj instanceof JMSRemoteObject) {
-            ((JMSRemoteObject) obj).ref = ref;
-        }
-        JMSRemoteSystem.INSTANCE.export(ref, obj);
-        return ref.getProxy();
+        return exportObject(obj, null);
     }
 
     public static Remote exportObject(Remote obj, Destination destination) throws RemoteException {
@@ -60,7 +55,11 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         if (obj instanceof JMSRemoteObject) {
             ((JMSRemoteObject) obj).ref = ref;
         }
-        JMSRemoteSystem.INSTANCE.export(ref, obj, destination);
+        if( destination==null ) {
+            JMSRemoteSystem.INSTANCE.export(ref, obj);
+        } else {
+            JMSRemoteSystem.INSTANCE.export(ref, obj, destination);
+        }
         return ref.getProxy();
     }
 

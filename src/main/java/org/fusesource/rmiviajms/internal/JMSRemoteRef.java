@@ -91,7 +91,7 @@ final public class JMSRemoteRef implements RemoteRef {
     private static void validateRemoteMethod(Method method) throws RemoteException {
         boolean throwsRemoteException=false;
         for (Class<?> etx : method.getExceptionTypes()) {
-            if( RemoteException.class.isAssignableFrom(etx) ) {
+            if( RemoteException.class.isAssignableFrom(etx) || etx.isAssignableFrom(RemoteException.class) ) {
                 throwsRemoteException=true;
                 break;
             }
