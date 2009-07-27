@@ -169,4 +169,14 @@ public class JMSRemoteObjectTest extends TestCase {
         } catch (RemoteException expected) {
         }
     }
+
+    public void testProxyToKnownDestiantion() throws RemoteException, InterruptedException {
+        ActiveMQQueue queue = new ActiveMQQueue("TEST");
+        HelloWorld object = new HelloWorld();
+        JMSRemoteObject.exportObject(object, queue);
+
+        IHelloWorld proxy = JMSRemoteObject.toProxy(queue, IHelloWorld.class);
+        assertEquals("hello", proxy.hello());
+    }
+
 }

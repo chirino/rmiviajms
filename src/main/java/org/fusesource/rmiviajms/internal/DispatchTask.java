@@ -37,7 +37,12 @@ final class DispatchTask implements Runnable {
             Response response = exportedObject.invoke(request);
             if( !oneway ) {
                 remoteSystem.sendResponse(msg.getJMSReplyTo(), request, response);
+            } else {
+                if( response.exception!=null ) {
+                    response.exception.printStackTrace();
+                }
             }
+
         } catch (JMSException e) {
             // The request message must not have been properly created.. ignore for now.
         }

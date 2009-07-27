@@ -118,7 +118,7 @@ public abstract class RMITestBase extends TestCase {
     /**
      * HTTP Proxy host.
      */
-    protected static final String PROXY_HOST = "your.proxy.host";
+    protected static final String PROXY_HOST = "your.toProxy.host";
 
     /**
      * HTTP Proxy port.
@@ -209,13 +209,13 @@ public abstract class RMITestBase extends TestCase {
                                         Integer.toString(GC_TIMEOUT));
         System.setProperty("java.rmi.server.disableHttp",
                                         Boolean.toString(disableHttp));
-        System.setProperty("harmony.rmi.transport.proxy.eagerHttpFallback",
+        System.setProperty("harmony.rmi.transport.toProxy.eagerHttpFallback",
                                         Boolean.toString(eagerHttpFallback));
         System.setProperty("harmony.rmi.transport.disableDirectSocket",
                                         Boolean.toString(disableDirectSocket));
-        System.setProperty("harmony.rmi.transport.proxy.enableDirectHTTP",
+        System.setProperty("harmony.rmi.transport.toProxy.enableDirectHTTP",
                                         Boolean.toString(enableDirectHTTP));
-        System.setProperty("harmony.rmi.transport.proxy.disablePlainHTTP",
+        System.setProperty("harmony.rmi.transport.toProxy.disablePlainHTTP",
                                         Boolean.toString(disablePlainHTTP));
         System.setProperty("http.proxyHost",
                                         (useProxy ? PROXY_HOST : ""));
@@ -229,7 +229,7 @@ public abstract class RMITestBase extends TestCase {
                                         (logging ? "VERBOSE" : ""));
         System.setProperty("harmony.rmi.transport.tcp.logLevel",
                                         (logging ? "VERBOSE" : ""));
-        System.setProperty("harmony.rmi.transport.proxy.logLevel",
+        System.setProperty("harmony.rmi.transport.toProxy.logLevel",
                                         (logging ? "VERBOSE" : ""));
     }
 
@@ -371,7 +371,7 @@ public abstract class RMITestBase extends TestCase {
 
         if (!ret) {
             System.out.println("WARNING: " + testName + " is skipped "
-                    + "because proxy (" + PROXY_HOST + ':' + PROXY_PORT
+                    + "because toProxy (" + PROXY_HOST + ':' + PROXY_PORT
                     + ") is not accessible.");
         }
         return ret;

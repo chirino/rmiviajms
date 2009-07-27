@@ -22,6 +22,7 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.io.InvalidObjectException;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 
 /**
  * @author chirino
@@ -94,5 +95,21 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
 
     protected Object writeReplace() throws ObjectStreamException {
         return ((JMSRemoteRef)ref).getProxy();
+    }
+
+    public static <T extends Remote> T toProxy(Destination destination, Class<T> mainInterface, Class<? extends Remote>... additionalInterface) throws RemoteException {
+        if( mainInterface == null ) {
+            throw new IllegalArgumentException("mainInterface cannot be null.");
+        }
+
+        ArrayList<Class> list = new ArrayList<Class>();
+        list.add(mainInterface);
+        if( additionalInterface!=null ) {
+            for (Class<? extends Remote> r : additionalInterface) {
+                list.add(r);
+            }
+        }
+        
+        return (T)JMSRemoteRef.toProxy(destination, list);
     }
 }

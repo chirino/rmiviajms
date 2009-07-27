@@ -14,7 +14,7 @@ Hiram Chirino
 {project_name:} is a small java library that allows you to do Java Remote
 Method Invocations (RMI) via a Java Message Service (JMS) provider like
 ActiveMQ. RMI is still the simplest and most accessible distributed programing
-models available to Application developers. When used via {project_name:}, all
+models available to Application developers. When you use {project_name:}, all
 remote RMI objects are bound to destinations on the JMS message bus. This
 allows you to leverage the message bus to achieve better availability and
 scaleability.
@@ -191,7 +191,7 @@ public void advanced() {
    HelloWorld hw = new HelloWorld();
    Destination dest = ...
    IHelloWorld proxy = 
-       (IHelloWorld)JMSRemoteObject.exportObject(hw, port);  // <2>
+       (IHelloWorld)JMSRemoteObject.exportObject(hw, dest);  // <2>
    ...    
 }
 --------------------------------------------------

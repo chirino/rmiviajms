@@ -21,6 +21,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author chirino
@@ -51,6 +53,25 @@ final public class JMSRemoteRef implements RemoteRef {
         this.interfaces = new Class<?>[rc.size()];
         rc.toArray(interfaces);
         this.proxy = (Remote) Proxy.newProxyInstance(clazz.getClassLoader(), interfaces, new RemoteObjectInvocationHandler(this));
+    }
+
+    private void initialize(List<Class> interfaces, Destination destination) throws RemoteException {
+         for (Class interf : interfaces ) {
+            if( !Remote.class.isAssignableFrom(interf)) {
+                throw new RemoteException("Invalid Remote interface "+interf.getName());
+            }
+        }
+        this.destination = destination;
+        this.objectId = -1;
+        this.interfaces = new Class<?>[interfaces.size()];
+        interfaces.toArray(this.interfaces);
+        this.proxy = (Remote) Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), this.interfaces, new RemoteObjectInvocationHandler(this));
+    }
+
+    public static <T extends Remote> T toProxy(Destination destination, List<Class> list) throws RemoteException {
+        JMSRemoteRef ref = new JMSRemoteRef();
+        ref.initialize(list, destination);
+        return (T) ref.getProxy();
     }
 
 
@@ -151,7 +172,7 @@ final public class JMSRemoteRef implements RemoteRef {
     }
 
 //    protected Object readResolve() throws ObjectStreamException {
-//        return proxy;
+//        return toProxy;
 //    }
 
     @Deprecated
@@ -183,6 +204,5 @@ final public class JMSRemoteRef implements RemoteRef {
     public Destination getDestination() {
         return destination;
     }
-
 
 }

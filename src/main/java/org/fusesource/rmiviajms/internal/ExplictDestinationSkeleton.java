@@ -64,8 +64,12 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
                 if( msg!=null ) {
                     if( JMSRemoteSystem.MSG_TYPE_REQUEST.equals(msg.getJMSType()) ) {
                         // Handle decoding the message in the dispatch thread.
-                        remoteSystem.getDispatchThreads().execute(new DispatchTask((ObjectMessage)msg));
+                        remoteSystem.getDispatchThreads().execute(new DispatchTask((ObjectMessage)msg, false));
+                    } else if( JMSRemoteSystem.MSG_TYPE_ONEWAY.equals(msg.getJMSType()) ) {
+                        // Handle decoding the message in the dispatch thread.
+                        remoteSystem.getDispatchThreads().execute(new DispatchTask((ObjectMessage)msg, true));
                     }
+
                 }
             } catch (Exception e) {
                 template.reset();
@@ -79,9 +83,11 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
      */
     private class DispatchTask implements Runnable {
         private final ObjectMessage msg;
+        private final boolean oneway;
 
-        public DispatchTask(ObjectMessage msg) {
+        public DispatchTask(ObjectMessage msg, boolean oneway) {
             this.msg = msg;
+            this.oneway = oneway;
         }
 
         public void run() {
@@ -89,7 +95,9 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
                 Thread.currentThread().setContextClassLoader(target.getClass().getClassLoader());
                 Request request = (Request)(msg).getObject();
                 Response response = invoke(request);
-                remoteSystem.sendResponse(msg.getJMSReplyTo(), request, response);
+                if ( !oneway ) {
+                    remoteSystem.sendResponse(msg.getJMSReplyTo(), request, response);
+                }
             } catch (JMSException e) {
                 // The request message must not have been properly created.. ignore for now.
             }
