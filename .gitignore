@@ -2,3 +2,6 @@ rmiviajms.iml
 rmiviajms.ipr
 rmiviajms.iws
 target/
+.classpath
+.project
+.settings/
