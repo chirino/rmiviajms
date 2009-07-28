@@ -31,7 +31,7 @@ class Skeleton {
             for (Class<?> intf : ref.getInterfaces()) {
                 for (Method method : intf.getMethods()) {
                     String sig = JMSRemoteSystem.signature(method);
-                    methods.put(sig, clazz.getMethod(method.getName(), method.getParameterTypes()));
+                    methods.put(sig, intf.getMethod(method.getName(), method.getParameterTypes()));
                 }
             }
         } catch (NoSuchMethodException e) {
