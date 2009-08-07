@@ -112,4 +112,19 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         
         return (T)JMSRemoteRef.toProxy(destination, list);
     }
+
+    static final private ThreadLocal<Long> NEXT_INVOCATION_TIMEOUT = new ThreadLocal<Long>();
+
+    public static void setNextInvocationTimeout(Long timeout) {
+        NEXT_INVOCATION_TIMEOUT.set(timeout);
+    }
+
+    public static Long removeNextInvocationTimeout() {
+        try {
+            return NEXT_INVOCATION_TIMEOUT.get();
+        } finally {
+            NEXT_INVOCATION_TIMEOUT.set(null);
+        }
+    }
+
 }

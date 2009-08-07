@@ -96,7 +96,7 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
                 Request request = (Request)(msg).getObject();
                 Response response = invoke(request);
                 if ( !oneway ) {
-                    remoteSystem.sendResponse(msg.getJMSReplyTo(), request, response);
+                    remoteSystem.sendResponse(msg, request, response);
                 }
             } catch (JMSException e) {
                 // The request message must not have been properly created.. ignore for now.
