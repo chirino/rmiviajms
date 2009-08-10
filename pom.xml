@@ -107,15 +107,24 @@
     </extensions>
       
     <plugins>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <configuration>
+  				<forkMode>pertest</forkMode>
+  				<childDelegation>false</childDelegation>
+  				<useFile>true</useFile>
+  				<argLine>-Xms256m -Xmx768m</argLine>
           <systemProperties>
             <property>
               <name>java.security.policy</name>
               <value>${basedir}/src/test/resources/all.policy</value>
             </property>
+  					<property>
+  						<name>org.apache.activemq.default.directory.prefix</name>
+  						<value>target/</value>
+  					</property>
           </systemProperties>
         </configuration>
       </plugin>
@@ -177,22 +186,6 @@
         </configuration>
       </plugin>
       
-      <plugin>
-			<artifactId>maven-surefire-plugin</artifactId>
-			<configuration>
-				<forkMode>pertest</forkMode>
-				<childDelegation>false</childDelegation>
-				<useFile>true</useFile>
-				<argLine>-Xms256m -Xmx768m</argLine>
-				<systemProperties>
-					<property>
-						<name>org.apache.activemq.default.directory.prefix</name>
-						<value>target/</value>
-					</property>
-				</systemProperties>
-			</configuration>
-		</plugin>
-            
     </plugins>
   </build>
 

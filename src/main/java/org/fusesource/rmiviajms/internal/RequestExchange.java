@@ -28,24 +28,35 @@ final class RequestExchange implements Runnable {
 
     private final JMSRemoteRef remoteRef;
     private final boolean oneway;
+    private final long timeout;
+    private final int deliveryMode;
+    private final int priority;
     private final Request request;
     private final AtomicBoolean canceled = new AtomicBoolean(false);
     private final CountDownLatch completed = new CountDownLatch(1);
     private final AtomicReference<Response> response = new AtomicReference<Response>();
     private JMSRemoteSystem remoteSystem;
 
-    public RequestExchange(JMSRemoteSystem remoteSystem, JMSRemoteRef remoteRef, String signature, Object[] params, boolean oneway) {
+    public RequestExchange(JMSRemoteSystem remoteSystem, JMSRemoteRef remoteRef, String signature, Object[] params, boolean oneway, long timeout, int deliveryMode, int priority) {
         this.remoteSystem = remoteSystem;
         this.remoteRef = remoteRef;
         this.oneway = oneway;
+        this.timeout = timeout;
+        this.deliveryMode = deliveryMode;
+        this.priority = priority;
         this.request = new Request(remoteRef.getObjectId(), signature, params, remoteSystem.requestCounter.incrementAndGet());
     }
 
-    public Object getResult(long timeout, TimeUnit unit) throws Throwable {
-        if (!completed.await(timeout, unit)) {
-            canceled.set(true);
-            throw new RemoteException("request tmeout");
+    public Object getResult() throws Throwable {
+        if( timeout>0 ) {
+            if( !completed.await(timeout, TimeUnit.MILLISECONDS) ) {
+                canceled.set(true);
+                throw new RemoteException("request tmeout");
+            }
+        } else {
+            completed.await();
         }
+
         Response r = response.get();
         if (r.exception != null) {
             if (r.fromRemote) {
@@ -103,7 +114,8 @@ final class RequestExchange implements Runnable {
 
                     Destination destination = remoteRef.getDestination();
                     MessageProducer producer = remoteSystem.sendTemplate.getMessageProducer();
-                    producer.send(destination, msg, DeliveryMode.NON_PERSISTENT, 4, 0);
+
+                    producer.send(destination, msg, deliveryMode, priority, timeout);
                     return;
 
                 } catch (RemoteException e) {

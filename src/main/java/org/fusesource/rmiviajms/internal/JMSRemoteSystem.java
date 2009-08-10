@@ -10,6 +10,8 @@
  */
 package org.fusesource.rmiviajms.internal;
 
+import org.fusesource.rmiviajms.*;
+
 import javax.jms.*;
 
 import java.lang.reflect.Method;
@@ -204,14 +206,34 @@ public abstract class JMSRemoteSystem {
 
         boolean oneway = JMSRemoteRef.isOneWay(method);
 
-        if (!oneway) {
+        long timeout = 0;
+        if( !oneway ) {
+            timeout = REQUEST_TIMEOUT;
+            if( method.isAnnotationPresent(Timeout.class) ) {
+                timeout = method.getAnnotation(Timeout.class).value();
+            }
+
+            // Perhaps there is per inovocation timeout configured..
+            Long nto = JMSRemoteObject.removeNextInvocationTimeout();
+            if( nto!=null ) {
+                timeout = nto;
+            }
+
             // Kicks off the receiver thread...
             kickReceiveThread();
         }
-        RequestExchange requestExchange = new RequestExchange(this, jmsRemoteRef, signature(method), params, oneway);
+
+        int deliveryMode = method.isAnnotationPresent(Persistent.class) ? DeliveryMode.PERSISTENT : DeliveryMode.NON_PERSISTENT;
+        int priority = 4;
+        if( method.isAnnotationPresent(Priority.class) ) {
+            priority = method.getAnnotation(Priority.class).value();
+        }
+
+
+        RequestExchange requestExchange = new RequestExchange(this, jmsRemoteRef, signature(method), params, oneway, timeout, deliveryMode, priority);
         getSenderThread().execute(requestExchange);
         try {
-            return requestExchange.getResult(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
+            return requestExchange.getResult();
         } catch (Exception e) {
             throw e;
         } catch (Throwable e) {
@@ -258,8 +280,9 @@ public abstract class JMSRemoteSystem {
         }
     }
 
-    void sendResponse(final Destination destination, final Request request, final Response response) {
-        getSenderThread().execute(new Runnable() {
+
+    void sendResponse(final Message requestMessage, final Request request, final Response response) {
+        getSenderThread().execute(new Runnable(){
             public void run() {
                 ObjectMessage msg = null;
                 while (running.get()) {
@@ -275,7 +298,7 @@ public abstract class JMSRemoteSystem {
                         }
                         msg.setLongProperty(MSG_PROP_REQUEST, request.requestId);
                         msg.setJMSType(MSG_TYPE_RESPONSE);
-                        producer.send(destination, msg, DeliveryMode.NON_PERSISTENT, 4, 0);
+                        producer.send(requestMessage.getJMSReplyTo(), msg, requestMessage.getJMSDeliveryMode(), requestMessage.getJMSPriority(), 0);
                         return;
                     } catch (Exception e) {
                         e.printStackTrace();
