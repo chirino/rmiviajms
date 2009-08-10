@@ -25,7 +25,7 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
     private final JMSRemoteRef ref;
     Thread receiveThread;
 
-    ExplictDestinationSkeleton(JMSRemoteSystem remoteSystem, JMSRemoteRef ref, Remote target) {
+    ExplictDestinationSkeleton(JMSRemoteSystem remoteSystem, JMSRemoteRef ref, Object target) {
         super(ref, target);
         this.remoteSystem = remoteSystem;
         this.template = new JMSTemplate(remoteSystem);

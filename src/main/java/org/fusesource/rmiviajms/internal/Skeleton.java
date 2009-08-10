@@ -21,10 +21,10 @@ import java.util.HashMap;
  * use convert the messages into Method objects we can invoke.
  */
 class Skeleton {
-    final Remote target;
+    final Object target;
     private final HashMap<String, Method> methods = new HashMap<String, Method>();
 
-    Skeleton(JMSRemoteRef ref, Remote target) {
+    Skeleton(JMSRemoteRef ref, Object target) {
         try {
             this.target = target;
             Class clazz = this.target.getClass();

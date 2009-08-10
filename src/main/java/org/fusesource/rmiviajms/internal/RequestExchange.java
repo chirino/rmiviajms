@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.io.NotSerializableException;
 import java.rmi.RemoteException;
 import java.rmi.MarshalException;
 import java.rmi.ServerException;
@@ -22,7 +23,7 @@ import java.rmi.ServerError;
 
 /**
  * @author chirino
-*/
+ */
 final class RequestExchange implements Runnable {
 
     private final JMSRemoteRef remoteRef;
@@ -41,18 +42,18 @@ final class RequestExchange implements Runnable {
     }
 
     public Object getResult(long timeout, TimeUnit unit) throws Throwable {
-        if( !completed.await(timeout, unit) ) {
+        if (!completed.await(timeout, unit)) {
             canceled.set(true);
             throw new RemoteException("request tmeout");
         }
         Response r = response.get();
-        if( r.exception!=null ) {
-            if( r.fromRemote ) {
+        if (r.exception != null) {
+            if (r.fromRemote) {
                 // We may need to wrap the exceptions a bit..
-                if( r.exception instanceof RemoteException) {
-                    throw new ServerException(r.exception.toString(), (RemoteException)r.exception);
-                } else if( r.exception instanceof Error ) {
-                    throw new ServerError(r.exception.toString(), (Error)r.exception);
+                if (r.exception instanceof RemoteException) {
+                    throw new ServerException(r.exception.toString(), (RemoteException) r.exception);
+                } else if (r.exception instanceof Error) {
+                    throw new ServerError(r.exception.toString(), (Error) r.exception);
                 }
             }
             throw r.exception;
@@ -65,22 +66,21 @@ final class RequestExchange implements Runnable {
         this.completed.countDown();
     }
 
-
     public void cancel() {
         canceled.set(true);
         remoteSystem.requests.remove(request.requestId);
     }
 
     public void run() {
-        if( canceled.get() )
+        if (canceled.get())
             return;
 
-        ObjectMessage msg=null;
-        if( !oneway ) {
+        ObjectMessage msg = null;
+        if (!oneway) {
             remoteSystem.requests.put(request.requestId, this);
         }
         try {
-            while( !canceled.get() && remoteSystem.running.get() ) {
+            while (!canceled.get() && remoteSystem.running.get()) {
                 try {
                     if (msg == null) {
                         // To go faster most JMS providers should let use do the following
@@ -90,7 +90,7 @@ final class RequestExchange implements Runnable {
                             Session session = remoteSystem.sendTemplate.getSession();
                             msg = session.createObjectMessage(request);
                             msg.setLongProperty(JMSRemoteSystem.MSG_PROP_OBJECT, request.objectId);
-                            if( oneway ) {
+                            if (oneway) {
                                 msg.setJMSType(JMSRemoteSystem.MSG_TYPE_ONEWAY);
                             } else {
                                 msg.setJMSType(JMSRemoteSystem.MSG_TYPE_REQUEST);
@@ -106,28 +106,31 @@ final class RequestExchange implements Runnable {
                     producer.send(destination, msg, DeliveryMode.NON_PERSISTENT, 4, 0);
                     return;
 
-
                 } catch (RemoteException e) {
                     setResponse(new Response(request.requestId, null, e));
                     return;
                 } catch (Exception e) {
+                    Throwable cause = e.getCause();
+                    if (cause != null && cause instanceof NotSerializableException) {
+                        setResponse(new Response(request.requestId, null, e.getCause()));
+                        return;
+                    }
                     e.printStackTrace();
                     remoteSystem.sendTemplate.reset();
                     // TODO: should we sleep?
                 }
             }
         } finally {
-            if( oneway ) {
+            if (oneway) {
                 // Lests the calling thread continue.. (since it won't be getting a response).
                 setResponse(new Response(0, null, null));
             }
         }
-        if ( canceled.get() ) {
-            if( !oneway ) {
+        if (canceled.get()) {
+            if (!oneway) {
                 remoteSystem.requests.remove(request.requestId);
             }
         }
-
 
     }
 }

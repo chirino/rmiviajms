@@ -21,18 +21,20 @@ import java.rmi.NoSuchObjectException;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.io.InvalidObjectException;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 /**
  * @author chirino
  */
 public class JMSRemoteObject extends RemoteObject implements Serializable {
 
-
     protected JMSRemoteObject() throws RemoteException {
         exportObject(this);
     }
+
     protected JMSRemoteObject(Destination destination) throws RemoteException {
         exportObject(this, destination);
     }
@@ -47,6 +49,24 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         }
     }
 
+    public static void addOneWayAnnotation(Class<? extends Annotation> annotation) {
+        JMSRemoteRef.addOneWayAnnotation(annotation);
+    }
+
+    public static Remote exportNonRemote(Object obj, Class<?>[] interfaces) throws Exception {
+        return exportNonRemote(obj, interfaces, null);
+    }
+
+    public static Remote exportNonRemote(Object obj, Class<?>[] interfaces, Destination destination) throws Exception {
+        JMSRemoteRef ref = new JMSRemoteRef();
+        if (destination == null) {
+            JMSRemoteSystem.INSTANCE.exportNonRemote(obj, interfaces, ref);
+        } else {
+            JMSRemoteSystem.INSTANCE.exportNonRemote(obj, interfaces, destination, ref);
+        }
+        return ref.getProxy();
+    }
+
     public static Remote exportObject(Remote obj) throws RemoteException {
         return exportObject(obj, null);
     }
@@ -56,14 +76,13 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         if (obj instanceof JMSRemoteObject) {
             ((JMSRemoteObject) obj).ref = ref;
         }
-        if( destination==null ) {
+        if (destination == null) {
             JMSRemoteSystem.INSTANCE.export(ref, obj);
         } else {
             JMSRemoteSystem.INSTANCE.export(ref, obj, destination);
         }
         return ref.getProxy();
     }
-
 
     public static boolean unexportObject(Remote obj, boolean force) throws java.rmi.NoSuchObjectException {
         try {
@@ -72,7 +91,7 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
             // Maybe it's  a traditional UnicastRemoteObject
             try {
                 return UnicastRemoteObject.unexportObject(obj, force);
-            } catch( NoSuchObjectException e2) {
+            } catch (NoSuchObjectException e2) {
             }
             throw e;
         } catch (InterruptedException e) {
@@ -81,35 +100,34 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         }
     }
 
-
     public static void resetSystem() throws InterruptedException {
         JMSRemoteSystem.INSTANCE.reset();
     }
 
     public static Remote toStub(Remote obj) throws NoSuchObjectException {
-        if( JMSRemoteRef.isRemoteProxy(obj) )
+        if (JMSRemoteRef.isRemoteProxy(obj))
             return obj;
         JMSRemoteRef ref = JMSRemoteSystem.INSTANCE.getExportedRemoteRef(obj);
         return ref.getProxy();
     }
 
     protected Object writeReplace() throws ObjectStreamException {
-        return ((JMSRemoteRef)ref).getProxy();
+        return ((JMSRemoteRef) ref).getProxy();
     }
 
     public static <T extends Remote> T toProxy(Destination destination, Class<T> mainInterface, Class<? extends Remote>... additionalInterface) throws RemoteException {
-        if( mainInterface == null ) {
+        if (mainInterface == null) {
             throw new IllegalArgumentException("mainInterface cannot be null.");
         }
 
-        ArrayList<Class> list = new ArrayList<Class>();
+        ArrayList<Class<?>> list = new ArrayList<Class<?>>();
         list.add(mainInterface);
-        if( additionalInterface!=null ) {
+        if (additionalInterface != null) {
             for (Class<? extends Remote> r : additionalInterface) {
                 list.add(r);
             }
         }
-        
-        return (T)JMSRemoteRef.toProxy(destination, list);
+
+        return (T) JMSRemoteRef.toProxy(destination, list);
     }
 }
