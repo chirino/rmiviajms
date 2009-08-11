@@ -10,12 +10,14 @@
  */
 package org.fusesource.rmiviajms.internal;
 
+import java.rmi.NoSuchObjectException;
+
 import javax.jms.ObjectMessage;
 import javax.jms.JMSException;
 
 /**
-     * This task demarshalls an received message, invokes the exported object
- * and sends the response via the sender thread.
+ * This task demarshalls an received message, invokes the exported object and
+ * sends the response via the sender thread.
  */
 final class DispatchTask implements Runnable {
     private final ObjectMessage msg;
@@ -32,13 +34,25 @@ final class DispatchTask implements Runnable {
         try {
             long oid = msg.getLongProperty("object");
             Skeleton exportedObject = remoteSystem.exportedSkeletonsById.get(oid);
-            Thread.currentThread().setContextClassLoader(exportedObject.target.getClass().getClassLoader());
-            Request request = (Request)(msg).getObject();
-            Response response = exportedObject.invoke(request);
-            if( !oneway ) {
+            Response response = null;
+            Request request = null;
+            if (exportedObject != null) {
+                Thread.currentThread().setContextClassLoader(exportedObject.target.getClass().getClassLoader());
+                request = (Request) (msg).getObject();
+                response = exportedObject.invoke(request);
+            } else {
+                try {
+                    request = (Request) (msg).getObject();
+                    response = new Response(request.requestId, null, new NoSuchObjectException("" + oid));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            
+            if (!oneway) {
                 remoteSystem.sendResponse(msg, request, response);
             } else {
-                if( response.exception!=null ) {
+                if (response.exception != null) {
                     response.exception.printStackTrace();
                 }
             }
