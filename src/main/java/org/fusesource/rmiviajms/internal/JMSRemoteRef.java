@@ -13,7 +13,9 @@ package org.fusesource.rmiviajms.internal;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.rmi.Remote;
@@ -34,10 +36,14 @@ import javax.jms.Destination;
 import org.fusesource.rmiviajms.Oneway;
 
 /**
- * @author chirino
+ * 
  */
+@SuppressWarnings("deprecation")
 final public class JMSRemoteRef implements RemoteRef {
 
+    //List of Annotations signifying Oneway (async) operations.
+    //Third party apps using this may supply their own annotations
+    //that indicate this
     private static final HashSet<Class<? extends Annotation>> ONE_WAY_ANNOTATIONS = new HashSet<Class<? extends Annotation>>();
     static {
         ONE_WAY_ANNOTATIONS.add(Oneway.class);
@@ -45,32 +51,24 @@ final public class JMSRemoteRef implements RemoteRef {
 
     private Destination destination;
     private long objectId;
+
+    //If this is a CGLib Reference then this will point to the 
+    //superclass being proxied:
+    private Class<?> superclass;
+    //Service interface exposed by the proxy (will always contain
+    //Remote:
     private Class<?>[] interfaces;
+
+    //If the exported object conforms strictly to RMI e.g.
+    //it implements Remote and throws RemoteException. 
+    //For CGLib proxies and lax remoting, this will be false.
     private boolean isRemote;
 
+    //The proxy class (Either a java.lang.reflect.Proxy or
+    //CGLib enhanced subclass:
     transient private Remote proxy;
 
     public JMSRemoteRef() {
-    }
-
-    /**
-     * Adds an annotation to the set of annotations that signify that a method
-     * is a one way method.
-     * 
-     * @param annotation
-     *            The annotation.
-     */
-    public static void addOneWayAnnotation(Class<? extends Annotation> annotation) {
-        ONE_WAY_ANNOTATIONS.add(annotation);
-    }
-
-    static boolean isOneWay(Method method) {
-       for (Class<? extends Annotation> annotation : ONE_WAY_ANNOTATIONS) {
-            if (method.isAnnotationPresent(annotation)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -90,23 +88,33 @@ final public class JMSRemoteRef implements RemoteRef {
         this.destination = destination;
         this.objectId = objectId;
         this.isRemote = false;
-        for (Class<?> c : interfaces) {
-            if (!c.isAssignableFrom(clazz)) {
-                throw new RemoteException("Invalid Remote interface " + clazz.getName() + " not assignable to " + c.getName());
+
+        if (interfaces != null && interfaces.length > 0) {
+            for (Class<?> c : interfaces) {
+                if (!c.isAssignableFrom(clazz)) {
+                    throw new RemoteException("Invalid proxy interface " + clazz.getName() + " not assignable to " + c.getName());
+                }
+
+                //Make sure we're passed an interface
+                if (!c.isInterface()) {
+                    throw new IllegalArgumentException("Not an interface: " + c);
+                }
+
+                validateRemoteInterface(c, false);
             }
 
-            //Make sure we're passed an interface
-            if (!c.isInterface()) {
-                throw new IllegalArgumentException("Not an interface: " + c);
+            this.interfaces = new Class<?>[interfaces.length + 1];
+            System.arraycopy(interfaces, 0, this.interfaces, 0, interfaces.length);
+            this.interfaces[this.interfaces.length - 1] = Remote.class;
+            this.proxy = (Remote) Proxy.newProxyInstance(clazz.getClassLoader(), this.interfaces, new JMSRemoteObjectInvocationHandler(this));
+        } else {
+            for (Method m : clazz.getDeclaredMethods()) {
+                validateRemoteMethod(m, false);
             }
-
-            validateRemoteInterface(c, false);
+            this.superclass = clazz;
+            this.interfaces = new Class[] { Remote.class };
+            this.proxy = (Remote) CGLibProxyAdapter.newProxyInstance(clazz, this.interfaces, new JMSRemoteObjectInvocationHandler(this));
         }
-
-        this.interfaces = new Class<?>[interfaces.length + 1];
-        System.arraycopy(interfaces, 0, this.interfaces, 0, interfaces.length);
-        this.interfaces[this.interfaces.length - 1] = Remote.class;
-        this.proxy = (Remote) Proxy.newProxyInstance(clazz.getClassLoader(), this.interfaces, new JMSRemoteObjectInvocationHandler(this));
     }
 
     public void initialize(Class<? extends Remote> clazz, Destination destination, long objectId) throws RemoteException {
@@ -140,23 +148,67 @@ final public class JMSRemoteRef implements RemoteRef {
         this.proxy = (Remote) Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), this.interfaces, new JMSRemoteObjectInvocationHandler(this));
     }
 
+    public Remote getProxy() {
+        return proxy;
+    }
+
+    /**
+     * Adds an annotation to the set of annotations that signify that a method
+     * is a one way method.
+     * 
+     * @param annotation
+     *            The annotation.
+     */
+    public static void addOneWayAnnotation(Class<? extends Annotation> annotation) {
+        ONE_WAY_ANNOTATIONS.add(annotation);
+    }
+
+    /**
+     * Tests if a given method has a one way annotation
+     * 
+     * @param annotation
+     *            The annotation.
+     */
+    static boolean isOneWay(Method method) {
+        for (Class<? extends Annotation> annotation : ONE_WAY_ANNOTATIONS) {
+            if (method.isAnnotationPresent(annotation)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unchecked")
     public static <T extends Remote> T toProxy(Destination destination, List<Class<?>> list) throws RemoteException {
         JMSRemoteRef ref = new JMSRemoteRef();
         ref.initialize(list, destination);
         return (T) ref.getProxy();
     }
 
-    public Remote getProxy() {
-        return proxy;
+    public static boolean isRemoteProxy(Object obj) {
+        return getProxyInvocationHandler(obj) != null;
     }
 
-    public static boolean isRemoteProxy(Remote obj) {
-        return Proxy.isProxyClass(obj.getClass()) && Proxy.getInvocationHandler(obj) instanceof RemoteObjectInvocationHandler;
+    private static RemoteObjectInvocationHandler getProxyInvocationHandler(Object obj) {
+        InvocationHandler handler = null;
+        if (Proxy.isProxyClass(obj.getClass())) {
+            handler = Proxy.getInvocationHandler(obj);
+        } else if (CGLibProxyAdapter.isProxyClass(obj.getClass())) {
+            handler = CGLibProxyAdapter.getInvocationHandler(obj);
+        }
+
+        if (handler instanceof RemoteObjectInvocationHandler) {
+            return (RemoteObjectInvocationHandler) handler;
+        }
+        return null;
     }
 
     public static JMSRemoteRef getJMSRemoteRefFromProxy(Remote obj) {
-        RemoteObjectInvocationHandler handler = (RemoteObjectInvocationHandler) Proxy.getInvocationHandler(obj);
-        return (JMSRemoteRef) handler.getRef();
+        RemoteObjectInvocationHandler handler = getProxyInvocationHandler(obj);
+        if (handler != null) {
+            return (JMSRemoteRef) handler.getRef();
+        }
+        return null;
     }
 
     static private void collectRemoteInterfaces(Class<?> clazz, Set<Class<?>> rc) throws RemoteException {
@@ -191,8 +243,8 @@ final public class JMSRemoteRef implements RemoteRef {
                 throw new ExportException("Invalid Remote interface " + method.getDeclaringClass().getName() + " method " + method.getName() + " does not throw a RemoteException");
             }
         }
-        if (method.isAnnotationPresent(Oneway.class) && method.getReturnType() != void.class) {
-            throw new ExportException("Invalid Remote interface " + method.getDeclaringClass().getName() + " method " + method.getName() + " is annotated with @Oneway so it must return void");
+        if (isOneWay(method) && method.getReturnType() != void.class) {
+            throw new ExportException("Invalid remote class " + method.getDeclaringClass().getName() + " method " + method.getName() + " is annotated as OneWay so it must return void");
         }
     }
 
@@ -225,6 +277,13 @@ final public class JMSRemoteRef implements RemoteRef {
         out.writeObject(destination);
         out.writeBoolean(isRemote);
         out.writeLong(objectId);
+
+        boolean isCGProxy = CGLibProxyAdapter.isProxyClass(proxy.getClass());
+        out.writeBoolean(isCGProxy);
+        if (isCGProxy) {
+            out.writeUTF(superclass.getName());
+        }
+
         out.writeShort(interfaces.length);
         for (Class<?> i : interfaces) {
             out.writeUTF(i.getName());
@@ -235,12 +294,23 @@ final public class JMSRemoteRef implements RemoteRef {
         destination = (Destination) in.readObject();
         isRemote = in.readBoolean();
         objectId = in.readLong();
-        interfaces = new Class<?>[in.readShort()];
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
+
+        boolean isCGProxy = in.readBoolean();
+        if (isCGProxy) {
+            superclass = cl.loadClass(in.readUTF());
+        }
+
+        interfaces = new Class<?>[in.readShort()];
         for (int i = 0; i < interfaces.length; i++) {
             interfaces[i] = cl.loadClass(in.readUTF());
         }
-        this.proxy = (Remote) Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), interfaces, new JMSRemoteObjectInvocationHandler(this));
+
+        if (!isCGProxy) {
+            this.proxy = (Remote) Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), interfaces, new JMSRemoteObjectInvocationHandler(this));
+        } else {
+            this.proxy = (Remote) CGLibProxyAdapter.newProxyInstance(superclass, interfaces, new JMSRemoteObjectInvocationHandler(this));
+        }
     }
 
     //    protected Object readResolve() throws ObjectStreamException {
