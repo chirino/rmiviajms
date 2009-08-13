@@ -11,14 +11,13 @@
 package org.fusesource.rmiviajms.internal;
 
 import java.rmi.*;
-import java.rmi.server.SkeletonMismatchException;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 
 /**
-     * Every exported object gets one of these.  It keeps a map that lets
- * use convert the messages into Method objects we can invoke.
+ * Every exported object gets one of these. It keeps a map that lets use convert
+ * the messages into Method objects we can invoke.
  */
 class Skeleton {
     final Object target;
@@ -27,11 +26,25 @@ class Skeleton {
     Skeleton(JMSRemoteRef ref, Object target) {
         try {
             this.target = target;
-            Class clazz = this.target.getClass();
-            for (Class<?> intf : ref.getInterfaces()) {
-                for (Method method : intf.getMethods()) {
+            Class<?> clazz = this.target.getClass();
+            if (CGLibProxyAdapter.isProxyClass(ref.getProxy().getClass())) {
+                for (Method method : clazz.getMethods()) {
+                    if(method.getDeclaringClass() == Object.class){
+                        continue;
+                    }
+//                    System.out.println("Class: " + clazz.getName() + " adding method: " + method.toGenericString());
+                     
                     String sig = JMSRemoteSystem.signature(method);
-                    methods.put(sig, intf.getMethod(method.getName(), method.getParameterTypes()));
+                    methods.put(sig, clazz.getMethod(method.getName(), method.getParameterTypes()));
+               }
+            } else {
+                for (Class<?> intf : ref.getInterfaces()) {
+                    for (Method method : intf.getMethods()) {
+//                        System.out.println("Class: " + clazz.getName() + " adding method: " + method.toGenericString());
+                        
+                        String sig = JMSRemoteSystem.signature(method);
+                        methods.put(sig, intf.getMethod(method.getName(), method.getParameterTypes()));
+                    }
                 }
             }
         } catch (NoSuchMethodException e) {
@@ -50,15 +63,15 @@ class Skeleton {
 
     private Object invoke(String signature, Object[] args) throws Throwable {
         Method method = methods.get(signature);
-        if( method == null ) {
-            throw new UnmarshalException("The remote object does contain the method: "+signature);
+        if (method == null) {
+            throw new UnmarshalException("The remote object does contain the method: " + signature);
         }
         try {
             return method.invoke(target, args);
         } catch (InvocationTargetException e) {
             throw e.getTargetException();
         } catch (IllegalAccessException e) {
-            throw new UnmarshalException("Could not invoke method: "+signature, e);
+            throw new UnmarshalException("Could not invoke method: " + signature, e);
         } catch (Exception e) {
             throw new UnexpectedException(e.toString(), e);
         }

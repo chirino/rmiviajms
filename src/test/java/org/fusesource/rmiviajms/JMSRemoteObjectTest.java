@@ -62,6 +62,10 @@ public class JMSRemoteObjectTest extends TestCase {
             latch.countDown();
         }
 
+        public String toString() {
+            return "Hello World String";
+        }
+
     }
 
     public static class HelloWorldCallback extends JMSRemoteObject implements IHelloWorldCallback {
@@ -96,14 +100,32 @@ public class JMSRemoteObjectTest extends TestCase {
         broker.stop();
     }
 
-    public void testHelloWorld() throws RemoteException {
+    public void testHelloWorld() throws Exception {
         HelloWorld object = new HelloWorld();
         Remote proxy = JMSRemoteObject.exportObject(object);
         assertTrue(proxy instanceof IHelloWorld);
 
         IHelloWorld hwp = (IHelloWorld) proxy;
         assertEquals("hello", hwp.hello());
+        
+        checkHelloWorldObjectMethods(object, proxy);
     }
+    
+    /**
+     * Make sure that object methods are handled properly
+     * @throws RemoteException
+     */
+    private static void checkHelloWorldObjectMethods(Object object, Object proxy) throws Exception {
+        
+        Thread.interrupted();
+        
+        assertFalse(proxy.equals(object));
+        assertTrue(proxy.equals(proxy));
+        assertNotSame(proxy.hashCode(), object.hashCode());
+        assertNotSame(proxy.toString(), object.toString());
+        
+    }
+    
 
     public void testHelloWorldCallback() throws RemoteException, InterruptedException {
         HelloWorld object = new HelloWorld();
@@ -218,11 +240,11 @@ public class JMSRemoteObjectTest extends TestCase {
         IHelloWorldCallbackNotRemote proxy;
 
         HelloWorldCallbackNotRemote() throws Exception {
-            proxy = (IHelloWorldCallbackNotRemote) JMSRemoteObject.exportNonRemote(this, IHelloWorldCallbackNotRemote.class);
+            proxy = (IHelloWorldCallbackNotRemote) JMSRemoteObject.export(this, IHelloWorldCallbackNotRemote.class);
         }
 
         public HelloWorldCallbackNotRemote(Destination destination) throws Exception {
-            proxy = (IHelloWorldCallbackNotRemote) JMSRemoteObject.exportNonRemote(this, destination, IHelloWorldCallbackNotRemote.class);
+            proxy = (IHelloWorldCallbackNotRemote) JMSRemoteObject.export(this, destination, IHelloWorldCallbackNotRemote.class);
         }
 
         public IHelloWorldCallbackNotRemote getProxy() {
@@ -234,19 +256,22 @@ public class JMSRemoteObjectTest extends TestCase {
             latch.countDown();
         }
     }
+    
+    
 
     public void testHelloWorldNotRemote() throws Exception {
         HelloWorldNotRemote object = new HelloWorldNotRemote();
-        Remote proxy = JMSRemoteObject.exportNonRemote(object, new Class[] { IHelloWorldNotRemote.class });
+        Remote proxy = JMSRemoteObject.export(object, new Class[] { IHelloWorldNotRemote.class });
         assertTrue(proxy instanceof IHelloWorldNotRemote);
 
         IHelloWorldNotRemote hwp = (IHelloWorldNotRemote) proxy;
         assertEquals("hello", hwp.hello());
+        checkHelloWorldObjectMethods(object, proxy);
     }
 
     public void testHelloWorldCallbackNotRemote() throws Exception, InterruptedException {
         HelloWorldNotRemote object = new HelloWorldNotRemote();
-        IHelloWorldNotRemote proxy = (IHelloWorldNotRemote) JMSRemoteObject.exportNonRemote(object, new Class[] { IHelloWorldNotRemote.class });
+        IHelloWorldNotRemote proxy = (IHelloWorldNotRemote) JMSRemoteObject.export(object, new Class[] { IHelloWorldNotRemote.class });
 
         HelloWorldCallbackNotRemote callback = new HelloWorldCallbackNotRemote();
         proxy.world(callback.getProxy());
@@ -258,7 +283,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     public void testHelloWorldAtKnownDestinationNotRemote() throws Exception {
         HelloWorldNotRemote object = new HelloWorldNotRemote();
-        Remote proxy = JMSRemoteObject.exportNonRemote(object, new ActiveMQQueue("FOO"), IHelloWorldNotRemote.class );
+        Remote proxy = JMSRemoteObject.export(object, new ActiveMQQueue("FOO"), IHelloWorldNotRemote.class );
 
         assertTrue(proxy instanceof IHelloWorldNotRemote);
 
@@ -268,7 +293,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     public void testHelloWorldCallbackAtKnownDestinationNotRemote() throws Exception, InterruptedException {
         HelloWorldNotRemote object = new HelloWorldNotRemote();
-        IHelloWorldNotRemote proxy = (IHelloWorldNotRemote) JMSRemoteObject.exportNonRemote(object, new Class[] { IHelloWorldNotRemote.class });
+        IHelloWorldNotRemote proxy = (IHelloWorldNotRemote) JMSRemoteObject.export(object, new Class[] { IHelloWorldNotRemote.class });
 
         HelloWorldCallbackNotRemote callback = new HelloWorldCallbackNotRemote(new ActiveMQQueue("BAR"));
         proxy.world(callback.getProxy());
@@ -277,4 +302,111 @@ public class JMSRemoteObjectTest extends TestCase {
         assertEquals("world", callback.value);
 
     }
+
+    public static class HelloWorldClass {
+        AtomicLong value = new AtomicLong();
+        CountDownLatch latch = new CountDownLatch(1);
+
+        public HelloWorldClass() {
+
+        }
+
+        public String hello() {
+            return "hello";
+        }
+
+        public void world(HelloWorldCallbackClass callback) throws RemoteException {
+            callback.execute("world");
+        }
+
+        @Oneway
+        public void slowOnewayOperations(int value) throws InterruptedException {
+            Thread.sleep(1000);
+            this.value.addAndGet(value);
+            latch.countDown();
+        }
+    }
+
+    public static class HelloWorldCallbackClass {
+        String value;
+        CountDownLatch latch = new CountDownLatch(1);
+        HelloWorldCallbackClass proxy;
+
+        HelloWorldCallbackClass() throws Exception {
+            proxy = (HelloWorldCallbackClass) JMSRemoteObject.export(this, null);
+        }
+
+        public HelloWorldCallbackClass(Destination destination) throws Exception {
+            proxy = (HelloWorldCallbackClass) JMSRemoteObject.export(this, destination, new Class[]{});
+        }
+
+        public HelloWorldCallbackClass getProxy() {
+            return proxy;
+        }
+
+        public void execute(String value) {
+            this.value = value;
+            latch.countDown();
+        }
+    }
+    
+    public void testHelloWorldClass() throws Exception {
+        HelloWorldClass object = new HelloWorldClass();
+        Remote proxy = JMSRemoteObject.export(object, null);
+        assertTrue(proxy instanceof HelloWorldClass);
+
+        HelloWorldClass hwp = (HelloWorldClass) proxy;
+        assertEquals("hello", hwp.hello());
+        
+        checkHelloWorldObjectMethods(object, proxy);
+    }
+    
+    public void testHelloWorldCallbackClass() throws Exception, InterruptedException {
+        HelloWorldClass object = new HelloWorldClass();
+        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, new Class []{});
+
+        HelloWorldCallbackClass callback = new HelloWorldCallbackClass();
+        proxy.world(callback.getProxy());
+
+        assertTrue(callback.latch.await(5, TimeUnit.SECONDS));
+        assertEquals("world", callback.value);
+
+    }
+
+    public void testHelloWorldAtKnownDestinationClass() throws Exception {
+        HelloWorldClass object = new HelloWorldClass();
+        Remote proxy = JMSRemoteObject.export(object, new ActiveMQQueue("FOO"), null);
+
+        assertTrue(proxy instanceof HelloWorldClass);
+
+        HelloWorldClass hwp = (HelloWorldClass) proxy;
+        assertEquals("hello", hwp.hello());
+    }
+
+    public void testHelloWorldCallbackAtKnownDestinationClass() throws Exception, InterruptedException {
+        HelloWorldClass object = new HelloWorldClass();
+        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, null);
+
+        HelloWorldCallbackClass callback = new HelloWorldCallbackClass(new ActiveMQQueue("BAR"));
+        proxy.world(callback.getProxy());
+
+        assertTrue(callback.latch.await(5, TimeUnit.SECONDS));
+        assertEquals("world", callback.value);
+
+    }
+    
+    public void testOnewayClass() throws Exception, InterruptedException {
+        HelloWorldClass object = new HelloWorldClass();
+        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, null);
+
+        // oneways will return before the remote invocation completes.
+        proxy.slowOnewayOperations(1);
+        assertEquals(0, object.value.get());
+
+        // Now wait for it to complete...
+        assertTrue(object.latch.await(2, TimeUnit.SECONDS));
+        assertEquals(1, object.value.get());
+    }
+
+
 }
