@@ -218,11 +218,11 @@ public class JMSRemoteObjectTest extends TestCase {
         IHelloWorldCallbackNotRemote proxy;
 
         HelloWorldCallbackNotRemote() throws Exception {
-            proxy = (IHelloWorldCallbackNotRemote) JMSRemoteObject.exportNonRemote(this, new Class[] { IHelloWorldCallbackNotRemote.class });
+            proxy = (IHelloWorldCallbackNotRemote) JMSRemoteObject.exportNonRemote(this, IHelloWorldCallbackNotRemote.class);
         }
 
         public HelloWorldCallbackNotRemote(Destination destination) throws Exception {
-            proxy = (IHelloWorldCallbackNotRemote) JMSRemoteObject.exportNonRemote(this, new Class[] { IHelloWorldCallbackNotRemote.class }, destination);
+            proxy = (IHelloWorldCallbackNotRemote) JMSRemoteObject.exportNonRemote(this, destination, IHelloWorldCallbackNotRemote.class);
         }
 
         public IHelloWorldCallbackNotRemote getProxy() {
@@ -258,7 +258,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     public void testHelloWorldAtKnownDestinationNotRemote() throws Exception {
         HelloWorldNotRemote object = new HelloWorldNotRemote();
-        Remote proxy = JMSRemoteObject.exportNonRemote(object, new Class[] { IHelloWorldNotRemote.class }, new ActiveMQQueue("FOO"));
+        Remote proxy = JMSRemoteObject.exportNonRemote(object, new ActiveMQQueue("FOO"), IHelloWorldNotRemote.class );
 
         assertTrue(proxy instanceof IHelloWorldNotRemote);
 

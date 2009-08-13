@@ -53,11 +53,11 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         JMSRemoteRef.addOneWayAnnotation(annotation);
     }
 
-    public static Remote exportNonRemote(Object obj, Class<?>[] interfaces) throws Exception {
-        return exportNonRemote(obj, interfaces, null);
+    public static Remote exportNonRemote(Object obj, Class<?>... interfaces) throws Exception {
+        return exportNonRemote(obj, null, interfaces);
     }
 
-    public static Remote exportNonRemote(Object obj, Class<?>[] interfaces, Destination destination) throws Exception {
+    public static Remote exportNonRemote(Object obj, Destination destination, Class<?>... interfaces) throws Exception {
         JMSRemoteRef ref = new JMSRemoteRef();
         if (destination == null) {
             JMSRemoteSystem.INSTANCE.exportNonRemote(obj, interfaces, ref);
@@ -115,7 +115,7 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         return ((JMSRemoteRef) ref).getProxy();
     }
 
-    public static <T extends Remote> T toProxy(Destination destination, Class<T> mainInterface, Class<? extends Remote>... additionalInterface) throws RemoteException {
+    public static <T> T toProxy(Destination destination, Class<T> mainInterface, Class<?>... additionalInterface) throws RemoteException {
         if (mainInterface == null) {
             throw new IllegalArgumentException("mainInterface cannot be null.");
         }
@@ -123,13 +123,14 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         ArrayList<Class<?>> list = new ArrayList<Class<?>>();
         list.add(mainInterface);
         if (additionalInterface != null) {
-            for (Class<? extends Remote> r : additionalInterface) {
+            for (Class<?> r : additionalInterface) {
                 list.add(r);
             }
         }
 
         return (T) JMSRemoteRef.toProxy(destination, list);
     }
+
 
     static final private ThreadLocal<Long> NEXT_INVOCATION_TIMEOUT = new ThreadLocal<Long>();
 
