@@ -26,10 +26,7 @@ import java.rmi.server.RemoteCall;
 import java.rmi.server.RemoteObject;
 import java.rmi.server.RemoteObjectInvocationHandler;
 import java.rmi.server.RemoteRef;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import javax.jms.Destination;
 
@@ -135,12 +132,7 @@ final public class JMSRemoteRef implements RemoteRef {
         this.proxy = (Remote) Proxy.newProxyInstance(clazz.getClassLoader(), interfaces, new JMSRemoteObjectInvocationHandler(this));
     }
 
-    private void initialize(List<Class<?>> interfaces, Destination destination) throws RemoteException {
-        for (Class<?> interf : interfaces) {
-            if (!Remote.class.isAssignableFrom(interf)) {
-                throw new RemoteException("Invalid Remote interface " + interf.getName());
-            }
-        }
+    private void initialize(List<Class<?>> interfaces, Destination destination, boolean validateRemote) throws RemoteException {
         this.destination = destination;
         this.objectId = -1;
         this.interfaces = new Class<?>[interfaces.size()];
@@ -166,8 +158,8 @@ final public class JMSRemoteRef implements RemoteRef {
     /**
      * Tests if a given method has a one way annotation
      * 
-     * @param annotation
-     *            The annotation.
+     * @param method
+     *            The mehod.
      */
     static boolean isOneWay(Method method) {
         for (Class<? extends Annotation> annotation : ONE_WAY_ANNOTATIONS) {
@@ -178,10 +170,56 @@ final public class JMSRemoteRef implements RemoteRef {
         return false;
     }
 
-    @SuppressWarnings("unchecked")
-    public static <T extends Remote> T toProxy(Destination destination, List<Class<?>> list) throws RemoteException {
+    public static <T extends Remote> T toProxy(Destination destination, Class<? extends Remote> mainClass, Class<? extends Remote>... extraInterface) throws RemoteException {
+        if (mainClass == null) {
+            throw new IllegalArgumentException("mainClass cannot be null.");
+        }
+
         JMSRemoteRef ref = new JMSRemoteRef();
-        ref.initialize(list, destination);
+        ArrayList<Class<?>> list = new ArrayList<Class<?>>(extraInterface.length+1);
+        list.add(mainClass);
+        if (extraInterface != null) {
+            list.addAll(Arrays.asList(extraInterface));
+        }
+
+        for (Class<?> c : list) {
+            if (!c.isInterface()) {
+                throw new IllegalArgumentException("Not an interface: " + c);
+            }
+            if (!Remote.class.isAssignableFrom(c)) {
+                throw new RemoteException("Invalid Remote interface " + c.getName());
+            }
+        }
+
+
+        ref.initialize(list, destination, true);
+        return (T) ref.getProxy();
+    }
+
+    public static <T> T toProxy(Destination destination, Class<T> mainClass, Class<?>... extraInterface) throws RemoteException {
+        if (mainClass == null) {
+            throw new IllegalArgumentException("mainClass cannot be null.");
+        }
+
+        JMSRemoteRef ref = new JMSRemoteRef();
+        ArrayList<Class<?>> list = new ArrayList<Class<?>>(extraInterface.length+1);
+        list.add(mainClass);
+        if (extraInterface != null) {
+            list.addAll(Arrays.asList(extraInterface));
+        }
+
+        for (Class<?> c : list) {
+            if (!c.isInterface()) {
+                throw new IllegalArgumentException("Not an interface: " + c);
+            }
+        }
+
+        // We may need to add the Remote interface..
+        if( !list.contains(Remote.class)) {
+            list.add(Remote.class);
+        }
+
+        ref.initialize(list, destination, false);
         return (T) ref.getProxy();
     }
 

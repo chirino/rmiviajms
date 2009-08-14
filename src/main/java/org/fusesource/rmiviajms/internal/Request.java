@@ -11,6 +11,7 @@
 package org.fusesource.rmiviajms.internal;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 /**
  * @author chirino
@@ -26,5 +27,15 @@ final class Request implements Serializable {
         this.methodSignature = methodSignature;
         this.objectId = objectId;
         this.requestId = requestId;
+    }
+
+    @Override
+    public String toString() {
+        return "Request{" +
+                "objectId=" + objectId +
+                ", methodSignature='" + methodSignature + '\'' +
+                ", args=" + (args == null ? null : Arrays.asList(args)) +
+                ", requestId=" + requestId +
+                '}';
     }
 }

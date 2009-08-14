@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.activemq.broker.BrokerService;
 import org.apache.activemq.command.ActiveMQQueue;
+import org.apache.activemq.command.ActiveMQTopic;
 
 import javax.jms.Destination;
 
@@ -406,6 +407,31 @@ public class JMSRemoteObjectTest extends TestCase {
         // Now wait for it to complete...
         assertTrue(object.latch.await(2, TimeUnit.SECONDS));
         assertEquals(1, object.value.get());
+    }
+
+
+    public static class TopicTestClass {
+
+    }
+
+    public void testTopicMultibinding() throws Exception, InterruptedException {
+        HelloWorldClass object1 = new HelloWorldClass();
+        HelloWorldClass proxy1 = (HelloWorldClass) JMSRemoteObject.export(object1, new ActiveMQTopic("TOPIC_TEST"), null);
+
+        HelloWorldClass object2 = new HelloWorldClass();
+        HelloWorldClass proxy2 = (HelloWorldClass) JMSRemoteObject.export(object2, new ActiveMQTopic("TOPIC_TEST"), null);
+
+        // One proxy invocation should invoke both objects.
+        proxy1.slowOnewayOperations(1);
+
+        assertEquals(0, object1.value.get());
+        assertEquals(0, object2.value.get());
+
+        // Now wait for it to complete...
+        assertTrue(object1.latch.await(2, TimeUnit.SECONDS));
+        assertTrue(object2.latch.await(2, TimeUnit.SECONDS));
+        assertEquals(1, object1.value.get());
+        assertEquals(1, object2.value.get());
     }
 
 

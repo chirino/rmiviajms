@@ -18,7 +18,6 @@ import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.rmi.*;
-import java.rmi.server.ExportException;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.*;
@@ -67,7 +66,6 @@ public abstract class JMSRemoteSystem {
 
     protected final ConcurrentHashMap<RemoteIdentity, JMSRemoteRef> exportedRemoteRefs = new ConcurrentHashMap<RemoteIdentity, JMSRemoteRef>();
     protected final ConcurrentHashMap<Long, Skeleton> exportedSkeletonsById = new ConcurrentHashMap<Long, Skeleton>();
-    protected final ConcurrentHashMap<Destination, ExplictDestinationSkeleton> exportedSkeletonsByDestination = new ConcurrentHashMap<Destination, ExplictDestinationSkeleton>();
 
     protected final ConcurrentHashMap<Long, RequestExchange> requests = new ConcurrentHashMap<Long, RequestExchange>();
     protected final AtomicLong objectCounter = new AtomicLong(0);
@@ -106,9 +104,11 @@ public abstract class JMSRemoteSystem {
             systemId = null;
         }
 
-        for (Iterator<ExplictDestinationSkeleton> iterator = exportedSkeletonsByDestination.values().iterator(); iterator.hasNext();) {
-            ExplictDestinationSkeleton entry = iterator.next();
-            entry.stop();
+        for (Iterator<Skeleton> iterator = exportedSkeletonsById.values().iterator(); iterator.hasNext();) {
+            Skeleton entry = iterator.next();
+            if( entry instanceof ExplictDestinationSkeleton ) {
+                ((ExplictDestinationSkeleton)entry).stop();
+            }
             iterator.remove();
         }
 
@@ -151,13 +151,9 @@ public abstract class JMSRemoteSystem {
     public void exportNonRemote(Object obj, Class<?>[] interfaces, Destination destination, JMSRemoteRef ref) throws Exception {
         ref.initializeNonRemote(obj.getClass(), interfaces, destination, objectCounter.incrementAndGet());
         ExplictDestinationSkeleton skeleton = new ExplictDestinationSkeleton(this, ref, obj);
-        if (exportedSkeletonsByDestination.putIfAbsent(ref.getDestination(), skeleton) != null) {
-            throw new ExportException("Another object has arlready been exported to that destination.");
-        }
         exportedSkeletonsById.put(ref.getObjectId(), skeleton);
         exportedRemoteRefs.put(new RemoteIdentity(obj), ref);
         skeleton.start();
-
     }
 
     public void export(JMSRemoteRef ref, Remote obj) throws RemoteException {
@@ -170,9 +166,6 @@ public abstract class JMSRemoteSystem {
     public void export(JMSRemoteRef ref, Remote obj, Destination destination) throws RemoteException {
         ref.initialize(obj.getClass(), destination, objectCounter.incrementAndGet());
         ExplictDestinationSkeleton skeleton = new ExplictDestinationSkeleton(this, ref, obj);
-        if (exportedSkeletonsByDestination.putIfAbsent(ref.getDestination(), skeleton) != null) {
-            throw new ExportException("Another object has arlready been exported to that destination.");
-        }
         exportedSkeletonsById.put(ref.getObjectId(), skeleton);
         exportedRemoteRefs.put(new RemoteIdentity(obj), ref);
         skeleton.start();
@@ -192,11 +185,8 @@ public abstract class JMSRemoteSystem {
         JMSRemoteRef ref = getExportedRemoteRef(obj);
         Skeleton skeleton = exportedSkeletonsById.remove(ref.getObjectId());
         exportedRemoteRefs.remove(new RemoteIdentity(skeleton.target));
-        if (ref.getDestination() != null) {
-            ExplictDestinationSkeleton edeo = exportedSkeletonsByDestination.remove(ref.getDestination());
-            if (edeo != null) {
-                edeo.stop();
-            }
+        if( skeleton instanceof ExplictDestinationSkeleton ) {
+            ((ExplictDestinationSkeleton)skeleton).stop();
         }
         // TODO: we should wait for all inovations on the object to quiese
         return true;

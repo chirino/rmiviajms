@@ -201,20 +201,12 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         return ((JMSRemoteRef) ref).getProxy();
     }
 
-    public static <T> T toProxy(Destination destination, Class<T> mainInterface, Class<?>... additionalInterface) throws RemoteException {
-        if (mainInterface == null) {
-            throw new IllegalArgumentException("mainInterface cannot be null.");
-        }
+    public static <T extends Remote> T toProxy(Destination destination, Class<? extends Remote> mainInterface, Class<? extends Remote>... extraInterface) throws RemoteException {
+        return (T) JMSRemoteRef.toProxy(destination, mainInterface, extraInterface);
+    }
 
-        ArrayList<Class<?>> list = new ArrayList<Class<?>>();
-        list.add(mainInterface);
-        if (additionalInterface != null) {
-            for (Class<?> r : additionalInterface) {
-                list.add(r);
-            }
-        }
-
-        return (T) JMSRemoteRef.toProxy(destination, list);
+    public static <T> T toProxy(Destination destination, Class<T> mainInterface, Class<?>... extraInterface) throws RemoteException {
+        return (T) JMSRemoteRef.toProxy(destination, mainInterface, extraInterface);
     }
 
 
