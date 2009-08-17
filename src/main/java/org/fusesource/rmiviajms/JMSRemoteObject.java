@@ -201,14 +201,9 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         return ((JMSRemoteRef) ref).getProxy();
     }
 
-    public static <T extends Remote> T toProxy(Destination destination, Class<? extends Remote> mainInterface, Class<? extends Remote>... extraInterface) throws RemoteException {
-        return (T) JMSRemoteRef.toProxy(destination, mainInterface, extraInterface);
-    }
-
     public static <T> T toProxy(Destination destination, Class<T> mainInterface, Class<?>... extraInterface) throws RemoteException {
         return (T) JMSRemoteRef.toProxy(destination, mainInterface, extraInterface);
     }
-
 
     static final private ThreadLocal<Long> NEXT_INVOCATION_TIMEOUT = new ThreadLocal<Long>();
 

@@ -170,32 +170,6 @@ final public class JMSRemoteRef implements RemoteRef {
         return false;
     }
 
-    public static <T extends Remote> T toProxy(Destination destination, Class<? extends Remote> mainClass, Class<? extends Remote>... extraInterface) throws RemoteException {
-        if (mainClass == null) {
-            throw new IllegalArgumentException("mainClass cannot be null.");
-        }
-
-        JMSRemoteRef ref = new JMSRemoteRef();
-        ArrayList<Class<?>> list = new ArrayList<Class<?>>(extraInterface.length+1);
-        list.add(mainClass);
-        if (extraInterface != null) {
-            list.addAll(Arrays.asList(extraInterface));
-        }
-
-        for (Class<?> c : list) {
-            if (!c.isInterface()) {
-                throw new IllegalArgumentException("Not an interface: " + c);
-            }
-            if (!Remote.class.isAssignableFrom(c)) {
-                throw new RemoteException("Invalid Remote interface " + c.getName());
-            }
-        }
-
-
-        ref.initialize(list, destination, true);
-        return (T) ref.getProxy();
-    }
-
     public static <T> T toProxy(Destination destination, Class<T> mainClass, Class<?>... extraInterface) throws RemoteException {
         if (mainClass == null) {
             throw new IllegalArgumentException("mainClass cannot be null.");
