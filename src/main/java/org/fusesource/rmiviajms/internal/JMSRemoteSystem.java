@@ -106,8 +106,8 @@ public abstract class JMSRemoteSystem {
 
         for (Iterator<Skeleton> iterator = exportedSkeletonsById.values().iterator(); iterator.hasNext();) {
             Skeleton entry = iterator.next();
-            if( entry instanceof ExplictDestinationSkeleton ) {
-                ((ExplictDestinationSkeleton)entry).stop();
+            if (entry instanceof ExplictDestinationSkeleton) {
+                ((ExplictDestinationSkeleton) entry).stop();
             }
             iterator.remove();
         }
@@ -185,8 +185,8 @@ public abstract class JMSRemoteSystem {
         JMSRemoteRef ref = getExportedRemoteRef(obj);
         Skeleton skeleton = exportedSkeletonsById.remove(ref.getObjectId());
         exportedRemoteRefs.remove(new RemoteIdentity(skeleton.target));
-        if( skeleton instanceof ExplictDestinationSkeleton ) {
-            ((ExplictDestinationSkeleton)skeleton).stop();
+        if (skeleton instanceof ExplictDestinationSkeleton) {
+            ((ExplictDestinationSkeleton) skeleton).stop();
         }
         // TODO: we should wait for all inovations on the object to quiese
         return true;
@@ -197,15 +197,15 @@ public abstract class JMSRemoteSystem {
         boolean oneway = JMSRemoteRef.isOneWay(method);
 
         long timeout = 0;
-        if( !oneway ) {
+        if (!oneway) {
             timeout = REQUEST_TIMEOUT;
-            if( method.isAnnotationPresent(Timeout.class) ) {
+            if (method.isAnnotationPresent(Timeout.class)) {
                 timeout = method.getAnnotation(Timeout.class).value();
             }
 
             // Perhaps there is per inovocation timeout configured..
             Long nto = JMSRemoteObject.removeNextInvocationTimeout();
-            if( nto!=null ) {
+            if (nto != null) {
                 timeout = nto;
             }
 
@@ -215,10 +215,9 @@ public abstract class JMSRemoteSystem {
 
         int deliveryMode = method.isAnnotationPresent(Persistent.class) ? DeliveryMode.PERSISTENT : DeliveryMode.NON_PERSISTENT;
         int priority = 4;
-        if( method.isAnnotationPresent(Priority.class) ) {
+        if (method.isAnnotationPresent(Priority.class)) {
             priority = method.getAnnotation(Priority.class).value();
         }
-
 
         RequestExchange requestExchange = new RequestExchange(this, jmsRemoteRef, signature(method), params, oneway, timeout, deliveryMode, priority);
         getSenderThread().execute(requestExchange);
@@ -270,9 +269,8 @@ public abstract class JMSRemoteSystem {
         }
     }
 
-
     void sendResponse(final Message requestMessage, final Request request, final Response response) {
-        getSenderThread().execute(new Runnable(){
+        getSenderThread().execute(new Runnable() {
             public void run() {
                 ObjectMessage msg = null;
                 while (running.get()) {
@@ -387,7 +385,17 @@ public abstract class JMSRemoteSystem {
 
     private static JMSRemoteSystem createJMSRemoteSystem() {
         try {
-            return (JMSRemoteSystem) JMSRemoteSystem.class.getClassLoader().loadClass(REMOTE_SYSTEM_CLASS).newInstance();
+            try {
+                return (JMSRemoteSystem) JMSRemoteSystem.class.getClassLoader().loadClass(REMOTE_SYSTEM_CLASS).newInstance();
+            } catch (ClassNotFoundException cnfe) {
+                ClassLoader cl = Thread.currentThread().getContextClassLoader();
+                if (cl != null) {
+                    //System.out.println("Using context cl: " + cl.hashCode());
+                    return (JMSRemoteSystem) cl.loadClass(REMOTE_SYSTEM_CLASS).newInstance();
+                } else {
+                    throw cnfe;
+                }
+            }
         } catch (Exception e) {
             throw new RuntimeException("Invalid setting for the org.fusesource.rmiviajms.JMSRemoteSystem system property: " + e, e);
         }
