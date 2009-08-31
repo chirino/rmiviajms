@@ -105,14 +105,15 @@ public class CGLibProxyAdapter {
         @SuppressWarnings("serial")
         public Object readResolve() throws ObjectStreamException {
             try {
-                Class<?> superclass = Thread.currentThread().getContextClassLoader().loadClass(this.superclass);
+                ClassLoader cl = this.getClass().getClassLoader();
+                Class<?> superclass = cl.loadClass(this.superclass);
                 Class<?>[] interfaces = null;
 
                 if (this.interfaces != null) {
                     interfaces = new Class<?>[this.interfaces.length];
 
                     for (int i = 0; i < this.interfaces.length; i++) {
-                        interfaces[i] = Thread.currentThread().getContextClassLoader().loadClass(this.interfaces[i]);
+                        interfaces[i] = cl.loadClass(this.interfaces[i]);
                     }
                 }
                 return CGLibProxyAdapter.newProxyInstance(superclass, interfaces, handler);
@@ -148,7 +149,12 @@ public class CGLibProxyAdapter {
         interfaces[0] = CGILibSerializableProxy.class;
 
 //        System.out.println("CGLIB CREATING PROXY for " + superclass.getName() + " with interfaces: " + Arrays.asList(interfaces));
-        Object obj = Enhancer.create(superclass, interfaces, ha);
+        Enhancer e = new Enhancer();
+        e.setClassLoader(CGLibProxyAdapter.class.getClassLoader());
+        e.setSuperclass(superclass);
+        e.setInterfaces(interfaces);
+        e.setCallback(ha);
+        Object obj = e.create();
         generatedClasses.put(obj.getClass(), null);
         return obj;
     }

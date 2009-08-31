@@ -28,25 +28,30 @@ final class DispatchTask implements Runnable {
         this.remoteSystem = remoteSystem;
         this.msg = msg;
         this.oneway = oneway;
+        //System.out.println("Created DispatchTask" + msg);
     }
 
     public void run() {
         try {
+            //System.out.println("Executing DispatchTask" + msg);
             long oid = msg.getLongProperty("object");
             Skeleton exportedObject = remoteSystem.exportedSkeletonsById.get(oid);
             Response response = null;
             Request request = null;
-            if (exportedObject != null) {
-                Thread.currentThread().setContextClassLoader(exportedObject.target.getClass().getClassLoader());
-                request = (Request) (msg).getObject();
-                response = exportedObject.invoke(request);
-            } else {
+            if (exportedObject == null) {
                 try {
+                    Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
                     request = (Request) (msg).getObject();
                     response = new Response(request.requestId, null, new NoSuchObjectException("" + oid));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            }
+            else
+            {
+                Thread.currentThread().setContextClassLoader(exportedObject.getClass().getClassLoader());
+                request = (Request) (msg).getObject();
+                response = exportedObject.invoke(request);
             }
             
             if (!oneway) {
@@ -56,9 +61,14 @@ final class DispatchTask implements Runnable {
                     response.exception.printStackTrace();
                 }
             }
-
-        } catch (JMSException e) {
+        }
+        catch (JMSException e) {
             // The request message must not have been properly created.. ignore for now.
+            e.printStackTrace();
+        }
+        catch (Throwable thrown)
+        {
+            thrown.printStackTrace();
         }
     }
 }
