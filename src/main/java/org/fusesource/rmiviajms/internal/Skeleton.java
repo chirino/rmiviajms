@@ -53,19 +53,29 @@ class Skeleton {
     }
 
     public Response invoke(Request request) {
+        //Invoke in the target's classloader:
+        ClassLoader original = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader(target.getClass().getClassLoader());
         try {
             Object result = invoke(request.methodSignature, request.args);
             return new Response(request.requestId, result, null);
         } catch (Throwable e) {
             return new Response(request.requestId, null, e);
         }
+        finally
+        {
+            Thread.currentThread().setContextClassLoader(original);
+        }
     }
 
     private Object invoke(String signature, Object[] args) throws Throwable {
+        //Invoke in the target's classloader:
         Method method = methods.get(signature);
         if (method == null) {
             throw new UnmarshalException("The remote object does contain the method: " + signature);
         }
+        ClassLoader original = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader(target.getClass().getClassLoader());
         try {
             return method.invoke(target, args);
         } catch (InvocationTargetException e) {
@@ -74,6 +84,10 @@ class Skeleton {
             throw new UnmarshalException("Could not invoke method: " + signature, e);
         } catch (Exception e) {
             throw new UnexpectedException(e.toString(), e);
+        }
+        finally
+        {
+            Thread.currentThread().setContextClassLoader(original);
         }
     }
 
