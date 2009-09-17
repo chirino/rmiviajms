@@ -76,6 +76,11 @@ class JMSTemplate {
     Connection getConnection() throws JMSException {
         if(connection==null) {
             connection = getConnectionFactory().createConnection();
+            connection.setExceptionListener(new ExceptionListener(){
+                public void onException(JMSException exception) {
+                    reset();
+                }
+            });
             connection.start();
         }
         return connection;

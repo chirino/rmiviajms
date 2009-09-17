@@ -97,9 +97,11 @@ final class RequestExchange implements Runnable {
                         // To go faster most JMS providers should let use do the following
                         // in original thread.. but to stay true to the spec, we are doing
                         // it in the sending thread to avoid multi-threaded session access.
+                        Session session = remoteSystem.sendTemplate.getSession();
+                        msg = session.createObjectMessage();
+                        
                         try {
-                            Session session = remoteSystem.sendTemplate.getSession();
-                            msg = session.createObjectMessage(request);
+                            msg.setObject(request);
                             msg.setLongProperty(JMSRemoteSystem.MSG_PROP_OBJECT, request.objectId);
                             if (oneway) {
                                 msg.setJMSType(JMSRemoteSystem.MSG_TYPE_ONEWAY);
