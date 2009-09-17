@@ -103,14 +103,14 @@ final public class JMSRemoteRef implements RemoteRef {
             this.interfaces = new Class<?>[interfaces.length + 1];
             System.arraycopy(interfaces, 0, this.interfaces, 0, interfaces.length);
             this.interfaces[this.interfaces.length - 1] = Remote.class;
-            this.proxy = (Remote) Proxy.newProxyInstance(clazz.getClassLoader(), this.interfaces, new JMSRemoteObjectInvocationHandler(this));
+            this.proxy = (Remote) Proxy.newProxyInstance(clazz.getClassLoader(), this.interfaces, createInvocationHandler());
         } else {
             for (Method m : clazz.getDeclaredMethods()) {
                 validateRemoteMethod(m, false);
             }
             this.superclass = clazz;
             this.interfaces = new Class[] { Remote.class };
-            this.proxy = (Remote) CGLibProxyAdapter.newProxyInstance(clazz, this.interfaces, new JMSRemoteObjectInvocationHandler(this));
+            this.proxy = (Remote) CGLibProxyAdapter.newProxyInstance(clazz, this.interfaces, createInvocationHandler());
         }
     }
 
@@ -129,7 +129,15 @@ final public class JMSRemoteRef implements RemoteRef {
         }
         this.interfaces = new Class<?>[rc.size()];
         rc.toArray(interfaces);
-        this.proxy = (Remote) Proxy.newProxyInstance(clazz.getClassLoader(), interfaces, new JMSRemoteObjectInvocationHandler(this));
+        this.proxy = (Remote) Proxy.newProxyInstance(clazz.getClassLoader(), interfaces, createInvocationHandler());
+    }
+
+    private InvocationHandler createInvocationHandler() {
+        if( isRemote ) {
+            return new RemoteObjectInvocationHandler(this);
+        } else {
+            return new JMSRemoteObjectInvocationHandler(this);
+        }
     }
 
     private void initialize(List<Class<?>> interfaces, Destination destination, boolean validateRemote) throws RemoteException {
@@ -137,7 +145,7 @@ final public class JMSRemoteRef implements RemoteRef {
         this.objectId = -1;
         this.interfaces = new Class<?>[interfaces.size()];
         interfaces.toArray(this.interfaces);
-        this.proxy = (Remote) Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), this.interfaces, new JMSRemoteObjectInvocationHandler(this));
+        this.proxy = (Remote) Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), this.interfaces, createInvocationHandler());
     }
 
     public Remote getProxy() {
@@ -319,9 +327,9 @@ final public class JMSRemoteRef implements RemoteRef {
         }
 
         if (!isCGProxy) {
-            this.proxy = (Remote) Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), interfaces, new JMSRemoteObjectInvocationHandler(this));
+            this.proxy = (Remote) Proxy.newProxyInstance(Thread.currentThread().getContextClassLoader(), interfaces, createInvocationHandler());
         } else {
-            this.proxy = (Remote) CGLibProxyAdapter.newProxyInstance(superclass, interfaces, new JMSRemoteObjectInvocationHandler(this));
+            this.proxy = (Remote) CGLibProxyAdapter.newProxyInstance(superclass, interfaces, createInvocationHandler());
         }
     }
 

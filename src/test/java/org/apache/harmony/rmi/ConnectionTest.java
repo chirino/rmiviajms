@@ -40,7 +40,6 @@ import org.apache.harmony.rmi.test.MyRemoteObject;
 import org.apache.harmony.rmi.test.MyRemoteObject1;
 import org.apache.harmony.rmi.test.MyRemoteObject3;
 import org.apache.harmony.rmi.test.MyRemoteObject4;
-import org.apache.activemq.broker.BrokerService;
 import org.fusesource.rmiviajms.JMSRemoteObject;
 
 import junit.framework.Test;

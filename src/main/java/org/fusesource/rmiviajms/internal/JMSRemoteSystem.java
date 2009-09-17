@@ -176,14 +176,18 @@ public abstract class JMSRemoteSystem {
             return JMSRemoteRef.getJMSRemoteRefFromProxy(obj);
         }
         JMSRemoteRef ref = exportedRemoteRefs.get(new RemoteIdentity(obj));
-        if (ref == null)
+        if (ref == null) {
             throw new NoSuchObjectException("Object not exported: " + obj);
+        }
         return ref;
     }
 
     public boolean unexport(Remote obj, boolean force) throws InterruptedException, NoSuchObjectException {
         JMSRemoteRef ref = getExportedRemoteRef(obj);
         Skeleton skeleton = exportedSkeletonsById.remove(ref.getObjectId());
+        if( skeleton==null ) {
+            throw new NoSuchObjectException("Object not exported: " + obj);
+        }
         exportedRemoteRefs.remove(new RemoteIdentity(skeleton.target));
         if (skeleton instanceof ExplictDestinationSkeleton) {
             ((ExplictDestinationSkeleton) skeleton).stop();
