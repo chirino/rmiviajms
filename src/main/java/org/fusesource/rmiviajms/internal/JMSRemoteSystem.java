@@ -267,7 +267,7 @@ public abstract class JMSRemoteSystem {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            //e.printStackTrace();
             receiveTemplate.reset();
             throw e;
         }
@@ -293,7 +293,7 @@ public abstract class JMSRemoteSystem {
                         producer.send(requestMessage.getJMSReplyTo(), msg, requestMessage.getJMSDeliveryMode(), requestMessage.getJMSPriority(), 0);
                         return;
                     } catch (Exception e) {
-                        e.printStackTrace();
+//                        e.printStackTrace();
                         sendTemplate.reset();
                         // TODO: should we sleep??
                         // lets loop to retry the send..
