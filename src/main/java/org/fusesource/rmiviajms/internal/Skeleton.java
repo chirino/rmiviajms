@@ -22,26 +22,32 @@ import java.util.HashMap;
 class Skeleton {
     final Object target;
     private final HashMap<String, Method> methods = new HashMap<String, Method>();
+    private final JMSRemoteSystem remoteSystem;
 
-    Skeleton(JMSRemoteRef ref, Object target) {
+    public ClassLoader getTargetClassLoader() {
+        return remoteSystem.getUserClassLoader(target);
+    }
+
+    Skeleton(JMSRemoteSystem remoteSystem, JMSRemoteRef ref, Object target) {
+        this.remoteSystem = remoteSystem;
         try {
             this.target = target;
             Class<?> clazz = this.target.getClass();
             if (CGLibProxyAdapter.isProxyClass(ref.getProxy().getClass())) {
                 for (Method method : clazz.getMethods()) {
-                    if(method.getDeclaringClass() == Object.class){
+                    if (method.getDeclaringClass() == Object.class) {
                         continue;
                     }
-//                    System.out.println("Class: " + clazz.getName() + " adding method: " + method.toGenericString());
-                     
+                    //                    System.out.println("Class: " + clazz.getName() + " adding method: " + method.toGenericString());
+
                     String sig = JMSRemoteSystem.signature(method);
                     methods.put(sig, clazz.getMethod(method.getName(), method.getParameterTypes()));
-               }
+                }
             } else {
                 for (Class<?> intf : ref.getInterfaces()) {
                     for (Method method : intf.getMethods()) {
-//                        System.out.println("Class: " + clazz.getName() + " adding method: " + method.toGenericString());
-                        
+                        //                        System.out.println("Class: " + clazz.getName() + " adding method: " + method.toGenericString());
+
                         String sig = JMSRemoteSystem.signature(method);
                         methods.put(sig, intf.getMethod(method.getName(), method.getParameterTypes()));
                     }
@@ -55,15 +61,13 @@ class Skeleton {
     public Response invoke(Request request) {
         //Invoke in the target's classloader:
         ClassLoader original = Thread.currentThread().getContextClassLoader();
-        Thread.currentThread().setContextClassLoader(target.getClass().getClassLoader());
+        Thread.currentThread().setContextClassLoader(getTargetClassLoader());
         try {
             Object result = invoke(request.methodSignature, request.args);
             return new Response(request.requestId, result, null);
         } catch (Throwable e) {
             return new Response(request.requestId, null, e);
-        }
-        finally
-        {
+        } finally {
             Thread.currentThread().setContextClassLoader(original);
         }
     }
@@ -75,7 +79,7 @@ class Skeleton {
             throw new UnmarshalException("The remote object does contain the method: " + signature);
         }
         ClassLoader original = Thread.currentThread().getContextClassLoader();
-        Thread.currentThread().setContextClassLoader(target.getClass().getClassLoader());
+        Thread.currentThread().setContextClassLoader(getTargetClassLoader());
         try {
             return method.invoke(target, args);
         } catch (InvocationTargetException e) {
@@ -84,9 +88,7 @@ class Skeleton {
             throw new UnmarshalException("Could not invoke method: " + signature, e);
         } catch (Exception e) {
             throw new UnexpectedException(e.toString(), e);
-        }
-        finally
-        {
+        } finally {
             Thread.currentThread().setContextClassLoader(original);
         }
     }

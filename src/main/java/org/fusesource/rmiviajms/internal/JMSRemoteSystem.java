@@ -41,6 +41,8 @@ public abstract class JMSRemoteSystem {
 
     public static final JMSRemoteSystem INSTANCE = createJMSRemoteSystem();
 
+    public ClassLoader userClassLoader;
+
     static class RemoteIdentity {
         final Object remote;
 
@@ -79,6 +81,32 @@ public abstract class JMSRemoteSystem {
     protected ExecutorService dispatchThreads;
     protected Thread receiveThread;
     protected String systemId;
+
+    public void setUserClassLoader(ClassLoader userClassLoader) {
+        this.userClassLoader = userClassLoader;
+    }
+
+    public ClassLoader getUserClassLoader() {
+        return userClassLoader;
+    }
+
+    /**
+     * Gets the user class loader if set, returning the class loader of the
+     * given object other wise.
+     * 
+     * @param o
+     *            The object whose class loader to default to.
+     * @return A class loader appropriate for the given object
+     */
+    public ClassLoader getUserClassLoader(Object o) {
+        if (userClassLoader != null) {
+            return userClassLoader;
+        } else if (o != null) {
+            return o.getClass().getClassLoader();
+        } else {
+            return Thread.currentThread().getContextClassLoader();
+        }
+    }
 
     public void reset() throws InterruptedException {
         running.set(false);
@@ -138,7 +166,7 @@ public abstract class JMSRemoteSystem {
      */
     public void exportNonRemote(Object obj, Class<?>[] interfaces, JMSRemoteRef ref) throws Exception {
         ref.initializeNonRemote(obj.getClass(), interfaces, receiveTemplate.getLocalSystemQueue(), objectCounter.incrementAndGet());
-        exportedSkeletonsById.put(ref.getObjectId(), new Skeleton(ref, obj));
+        exportedSkeletonsById.put(ref.getObjectId(), new Skeleton(this, ref, obj));
         exportedRemoteRefs.put(new RemoteIdentity(obj), ref);
         kickReceiveThread();
     }
@@ -158,7 +186,7 @@ public abstract class JMSRemoteSystem {
 
     public void export(JMSRemoteRef ref, Remote obj) throws RemoteException {
         ref.initialize(obj.getClass(), receiveTemplate.getLocalSystemQueue(), objectCounter.incrementAndGet());
-        exportedSkeletonsById.put(ref.getObjectId(), new Skeleton(ref, obj));
+        exportedSkeletonsById.put(ref.getObjectId(), new Skeleton(this, ref, obj));
         exportedRemoteRefs.put(new RemoteIdentity(obj), ref);
         kickReceiveThread();
     }
@@ -185,7 +213,7 @@ public abstract class JMSRemoteSystem {
     public boolean unexport(Remote obj, boolean force) throws InterruptedException, NoSuchObjectException {
         JMSRemoteRef ref = getExportedRemoteRef(obj);
         Skeleton skeleton = exportedSkeletonsById.remove(ref.getObjectId());
-        if( skeleton==null ) {
+        if (skeleton == null) {
             throw new NoSuchObjectException("Object not exported: " + obj);
         }
         exportedRemoteRefs.remove(new RemoteIdentity(skeleton.target));
@@ -253,7 +281,7 @@ public abstract class JMSRemoteSystem {
                         if (target != null) {
                             Response response = null;
                             try {
-                                Thread.currentThread().setContextClassLoader(target.getClass().getClassLoader());
+                                Thread.currentThread().setContextClassLoader(getUserClassLoader(target));
                                 response = (Response) ((ObjectMessage) msg).getObject();
                                 response.fromRemote = true;
                             } catch (JMSException e) {
@@ -262,18 +290,18 @@ public abstract class JMSRemoteSystem {
                             target.setResponse(response);
                         }
                     } catch (JMSException e) {
-                        // response message must not have been property formatted.
+                        e.printStackTrace();
                     }
                 }
             }
         } catch (Exception e) {
-            //e.printStackTrace();
+            e.printStackTrace();
             receiveTemplate.reset();
             throw e;
         }
     }
 
-    void sendResponse(final Message requestMessage, final Request request, final Response response) {
+    void sendResponse(final Message requestMessage, final Response response) {
         getSenderThread().execute(new Runnable() {
             public void run() {
                 ObjectMessage msg = null;
@@ -288,12 +316,12 @@ public abstract class JMSRemoteSystem {
                                 msg = session.createObjectMessage(new Response(response.requestId, null, new MarshalException("Could not marshall response: " + e.getMessage(), e)));
                             }
                         }
-                        msg.setLongProperty(MSG_PROP_REQUEST, request.requestId);
+                        msg.setLongProperty(MSG_PROP_REQUEST, response.requestId);
                         msg.setJMSType(MSG_TYPE_RESPONSE);
                         producer.send(requestMessage.getJMSReplyTo(), msg, requestMessage.getJMSDeliveryMode(), requestMessage.getJMSPriority(), 0);
                         return;
                     } catch (Exception e) {
-//                        e.printStackTrace();
+                        e.printStackTrace();
                         sendTemplate.reset();
                         // TODO: should we sleep??
                         // lets loop to retry the send..

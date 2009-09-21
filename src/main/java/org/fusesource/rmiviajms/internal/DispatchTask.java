@@ -34,40 +34,41 @@ final class DispatchTask implements Runnable {
     public void run() {
         try {
             //System.out.println("Executing DispatchTask" + msg);
-            long oid = msg.getLongProperty("object");
+            long oid = msg.getLongProperty(JMSRemoteSystem.MSG_PROP_OBJECT);
+            long requestId = -1;
+            if (!oneway) {
+                requestId = msg.getLongProperty(JMSRemoteSystem.MSG_PROP_REQUEST);
+            }
+
             Skeleton exportedObject = remoteSystem.exportedSkeletonsById.get(oid);
             Response response = null;
             Request request = null;
             if (exportedObject == null) {
+                response = new Response(requestId, null, new NoSuchObjectException("" + oid));
+            } else {
                 try {
-                    Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
+                    Thread.currentThread().setContextClassLoader(exportedObject.getTargetClassLoader());
                     request = (Request) (msg).getObject();
-                    response = new Response(request.requestId, null, new NoSuchObjectException("" + oid));
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    response = exportedObject.invoke(request);
+                } catch (Throwable thrown) {
+                    System.err.println("Error in rmi dispatch for " + exportedObject + "-" + exportedObject.getTargetClassLoader() + " / " + remoteSystem.getUserClassLoader());
+                    thrown.printStackTrace();
+                    
+                    response = new Response(requestId, null, thrown);
                 }
             }
-            else
-            {
-                Thread.currentThread().setContextClassLoader(exportedObject.getClass().getClassLoader());
-                request = (Request) (msg).getObject();
-                response = exportedObject.invoke(request);
-            }
-            
+
             if (!oneway) {
-                remoteSystem.sendResponse(msg, request, response);
+                remoteSystem.sendResponse(msg, response);
             } else {
                 if (response.exception != null) {
                     response.exception.printStackTrace();
                 }
             }
-        }
-        catch (JMSException e) {
+        } catch (JMSException e) {
             // The request message must not have been properly created.. ignore for now.
             e.printStackTrace();
-        }
-        catch (Throwable thrown)
-        {
+        } catch (Throwable thrown) {
             thrown.printStackTrace();
         }
     }

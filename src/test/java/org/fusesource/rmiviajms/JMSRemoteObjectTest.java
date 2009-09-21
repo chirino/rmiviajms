@@ -428,8 +428,8 @@ public class JMSRemoteObjectTest extends TestCase {
         assertEquals(0, object2.value.get());
 
         // Now wait for it to complete...
-        assertTrue(object1.latch.await(2, TimeUnit.SECONDS));
-        assertTrue(object2.latch.await(2, TimeUnit.SECONDS));
+        assertTrue(object1.latch.await(5, TimeUnit.SECONDS));
+        assertTrue(object2.latch.await(5, TimeUnit.SECONDS));
         assertEquals(1, object1.value.get());
         assertEquals(1, object2.value.get());
     }

@@ -26,7 +26,7 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
     Thread receiveThread;
 
     ExplictDestinationSkeleton(JMSRemoteSystem remoteSystem, JMSRemoteRef ref, Object target) {
-        super(ref, target);
+        super(remoteSystem, ref, target);
         this.remoteSystem = remoteSystem;
         this.template = new JMSTemplate(remoteSystem);
         this.ref = ref;
@@ -72,6 +72,7 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
 
                 }
             } catch (Exception e) {
+                e.printStackTrace();
                 template.reset();
             }
         }
@@ -92,11 +93,11 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
 
         public void run() {
             try {
-                Thread.currentThread().setContextClassLoader(target.getClass().getClassLoader());
+                Thread.currentThread().setContextClassLoader(getTargetClassLoader());
                 Request request = (Request)(msg).getObject();
                 Response response = invoke(request);
                 if ( !oneway ) {
-                    remoteSystem.sendResponse(msg, request, response);
+                    remoteSystem.sendResponse(msg, response);
                 }
             } catch (JMSException e) {
                 // The request message must not have been properly created.. ignore for now.

@@ -107,6 +107,9 @@ final class RequestExchange implements Runnable {
                                 msg.setJMSType(JMSRemoteSystem.MSG_TYPE_ONEWAY);
                             } else {
                                 msg.setJMSType(JMSRemoteSystem.MSG_TYPE_REQUEST);
+                                //Set the request id in the properties, so that error response can be returned
+                                //if there is an error unmarshalling the request at the other end:
+                                msg.setLongProperty(JMSRemoteSystem.MSG_PROP_REQUEST, request.requestId);
                                 msg.setJMSReplyTo(remoteSystem.sendTemplate.getLocalSystemQueue());
                             }
                         } catch (JMSException e) {
