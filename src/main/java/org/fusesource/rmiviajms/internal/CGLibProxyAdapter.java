@@ -105,7 +105,7 @@ public class CGLibProxyAdapter {
         @SuppressWarnings("serial")
         public Object readResolve() throws ObjectStreamException {
             try {
-                ClassLoader cl = JMSRemoteSystem.INSTANCE.getUserClassLoader(CGLibProxyAdapter.class.getClassLoader());
+                ClassLoader cl = JMSRemoteSystem.INSTANCE.getUserClassLoader(this);
                 Class<?> superclass = cl.loadClass(this.superclass);
                 Class<?>[] interfaces = null;
 
@@ -150,7 +150,7 @@ public class CGLibProxyAdapter {
 
 //        System.out.println("CGLIB CREATING PROXY for " + superclass.getName() + " with interfaces: " + Arrays.asList(interfaces));
         Enhancer e = new Enhancer();
-        e.setClassLoader(JMSRemoteSystem.INSTANCE.getUserClassLoader(CGLibProxyAdapter.class.getClassLoader()));
+        e.setClassLoader(JMSRemoteSystem.INSTANCE.getUserClassLoader(ha));
         e.setSuperclass(superclass);
         e.setInterfaces(interfaces);
         e.setCallback(ha);
