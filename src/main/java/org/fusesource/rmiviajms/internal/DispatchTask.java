@@ -47,7 +47,7 @@ final class DispatchTask implements Runnable {
                 response = new Response(requestId, null, new NoSuchObjectException("" + oid));
             } else {
                 try {
-                    Thread.currentThread().setContextClassLoader(exportedObject.getTargetClassLoader());
+                    Thread.currentThread().setContextClassLoader(remoteSystem.getUserClassLoader(this));
                     request = (Request) (msg).getObject();
                     response = exportedObject.invoke(request);
                 } catch (Throwable thrown) {
