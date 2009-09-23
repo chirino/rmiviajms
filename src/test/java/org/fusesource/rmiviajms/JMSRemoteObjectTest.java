@@ -32,7 +32,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     private BrokerService broker;
 
-    public static interface IHelloWorld extends Remote {
+    private static interface IHelloWorld extends Remote {
         public String hello() throws RemoteException;
 
         public void world(IHelloWorldCallback callback) throws RemoteException;
@@ -41,11 +41,11 @@ public class JMSRemoteObjectTest extends TestCase {
         void slowOnewayOperations(int value) throws RemoteException, InterruptedException;
     }
 
-    public static interface IHelloWorldCallback extends Remote {
+    private static interface IHelloWorldCallback extends Remote {
         public void execute(String value) throws RemoteException;
     }
 
-    public static class HelloWorld implements IHelloWorld {
+    private static class HelloWorld implements IHelloWorld {
         AtomicLong value = new AtomicLong();
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -69,7 +69,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     }
 
-    public static class HelloWorldCallback extends JMSRemoteObject implements IHelloWorldCallback {
+    private static class HelloWorldCallback extends JMSRemoteObject implements IHelloWorldCallback {
         String value;
         CountDownLatch latch = new CountDownLatch(1);
 
