@@ -99,6 +99,7 @@ public class JMSRemoteObjectTest extends TestCase {
     protected void tearDown() throws Exception {
         JMSRemoteObject.resetSystem();
         broker.stop();
+        broker.waitUntilStopped();
     }
 
     public void testHelloWorld() throws Exception {

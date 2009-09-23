@@ -11,6 +11,9 @@
 package org.fusesource.rmiviajms.internal;
 
 import javax.jms.*;
+
+import org.fusesource.rmiviajms.internal.JMSTemplate.TemplateClosedException;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.rmi.Remote;
 
@@ -71,7 +74,13 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
                     }
 
                 }
-            } catch (Exception e) {
+            } 
+            catch (TemplateClosedException tce) {
+                //TODO we should probably just eat this.
+                tce.printStackTrace();
+                return;
+            } 
+            catch (Exception e) {
                 e.printStackTrace();
                 template.reset();
             }

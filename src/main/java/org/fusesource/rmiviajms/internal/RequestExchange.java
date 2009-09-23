@@ -11,6 +11,9 @@
 package org.fusesource.rmiviajms.internal;
 
 import javax.jms.*;
+
+import org.fusesource.rmiviajms.internal.JMSTemplate.TemplateClosedException;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CountDownLatch;
@@ -48,8 +51,8 @@ final class RequestExchange implements Runnable {
     }
 
     public Object getResult() throws Throwable {
-        if( timeout>0 ) {
-            if( !completed.await(timeout, TimeUnit.MILLISECONDS) ) {
+        if (timeout > 0) {
+            if (!completed.await(timeout, TimeUnit.MILLISECONDS)) {
                 canceled.set(true);
                 throw new RemoteException("request tmeout");
             }
@@ -99,7 +102,7 @@ final class RequestExchange implements Runnable {
                         // it in the sending thread to avoid multi-threaded session access.
                         Session session = remoteSystem.sendTemplate.getSession();
                         msg = session.createObjectMessage();
-                        
+
                         try {
                             msg.setObject(request);
                             msg.setLongProperty(JMSRemoteSystem.MSG_PROP_OBJECT, request.objectId);
@@ -125,6 +128,9 @@ final class RequestExchange implements Runnable {
 
                 } catch (RemoteException e) {
                     setResponse(new Response(request.requestId, null, e));
+                    return;
+                } catch (TemplateClosedException tce) {
+                    setResponse(new Response(request.requestId, null, tce));
                     return;
                 } catch (Exception e) {
                     Throwable cause = e.getCause();

@@ -10,10 +10,12 @@
  */
 package org.fusesource.rmiviajms.internal;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import javax.jms.*;
 
 /**
-     * Helper JMS class that caches the JMS objects.
+ * Helper JMS class that caches the JMS objects.
  */
 class JMSTemplate {
     private Session session;
@@ -23,62 +25,105 @@ class JMSTemplate {
     private MessageConsumer consumer;
     private Destination localSystemQueue;
     private JMSRemoteSystem remoteSystem;
+    private AtomicBoolean closed = new AtomicBoolean(false);
+
+    public class TemplateClosedException extends Exception {
+    }
 
     public JMSTemplate(JMSRemoteSystem remoteSystem) {
         this.remoteSystem = remoteSystem;
     }
 
-    void reset() {
-        try {
-            connection.close();
-        } catch(Throwable ignore) {
+    public void close() {
+        if (closed.compareAndSet(false, true)) {
+            reset();
         }
-        connection = null;
-        session= null;
-        producer=null;
-        consumer=null;
-        connectionFactory=null;
-        localSystemQueue =null;
+    }
+
+    void reset() {
+
+        Connection oldConn = null;
+
+        synchronized (this) {
+            oldConn = connection;
+            connection = null;
+
+            if (oldConn != null) {
+                connection = null;
+                session = null;
+                producer = null;
+                consumer = null;
+                connectionFactory = null;
+                localSystemQueue = null;
+            }
+        }
+
+        if (oldConn != null) {
+            try {
+                oldConn.close();
+            } catch (JMSException jmse) {
+            }
+        }
     }
 
     Destination getLocalSystemQueue() {
-        if( localSystemQueue ==null ) {
+        if (localSystemQueue == null) {
             localSystemQueue = remoteSystem.createQueue(remoteSystem.getSystemId());
         }
         return localSystemQueue;
     }
 
-    MessageConsumer getMessageConsumer(Destination destination) throws JMSException {
-        if( consumer==null) {
+    MessageConsumer getMessageConsumer(Destination destination) throws JMSException, TemplateClosedException {
+        if (consumer == null) {
             consumer = getSession().createConsumer(destination);
         }
         return consumer;
     }
 
-    MessageConsumer getMessageConsumer() throws JMSException {
+    MessageConsumer getMessageConsumer() throws JMSException, TemplateClosedException {
         return getMessageConsumer(getLocalSystemQueue());
     }
 
-    MessageProducer getMessageProducer() throws JMSException {
-        if(producer==null) {
+    MessageProducer getMessageProducer() throws JMSException, TemplateClosedException {
+        if (producer == null) {
             producer = getSession().createProducer(null);
         }
         return producer;
     }
 
-    Session getSession() throws JMSException {
-        if(session==null) {
+    Session getSession() throws JMSException, TemplateClosedException {
+        if (session == null) {
             session = getConnection().createSession(false, Session.AUTO_ACKNOWLEDGE);
         }
         return session;
     }
 
-    Connection getConnection() throws JMSException {
-        if(connection==null) {
+    synchronized Connection getConnection() throws JMSException, TemplateClosedException {
+        if (closed.get()) {
+            throw new JMSException("JMSTemplate Closed");
+        }
+        if (connection == null) {
             connection = getConnectionFactory().createConnection();
-            connection.setExceptionListener(new ExceptionListener(){
+            connection.setExceptionListener(new ExceptionListener() {
+                final Connection thisConn = connection;
+
                 public void onException(JMSException exception) {
-                    reset();
+                    try {
+
+                        boolean reset = false;
+                        synchronized (this) {
+                            if (connection == this.thisConn) {
+                                reset = true;
+                            }
+                        }
+                        if (reset) {
+                            if (!closed.get() && reset) {
+                                reset();
+                            }
+                        }
+                    } catch (Throwable thrown) {
+                        thrown.printStackTrace();
+                    }
                 }
             });
             connection.start();
@@ -86,8 +131,8 @@ class JMSTemplate {
         return connection;
     }
 
-    ConnectionFactory getConnectionFactory() throws JMSException  {
-        if(connectionFactory==null) {
+    ConnectionFactory getConnectionFactory() throws JMSException {
+        if (connectionFactory == null) {
             connectionFactory = remoteSystem.createConnectionFactory();
         }
         return connectionFactory;

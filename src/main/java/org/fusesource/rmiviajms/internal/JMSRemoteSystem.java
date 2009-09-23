@@ -11,6 +11,7 @@
 package org.fusesource.rmiviajms.internal;
 
 import org.fusesource.rmiviajms.*;
+import org.fusesource.rmiviajms.internal.JMSTemplate.TemplateClosedException;
 
 import javax.jms.*;
 
@@ -74,8 +75,8 @@ public abstract class JMSRemoteSystem {
     protected final AtomicLong requestCounter = new AtomicLong(0);
     protected final AtomicBoolean running = new AtomicBoolean(true);
 
-    protected final JMSTemplate sendTemplate = new JMSTemplate(this);
-    protected final JMSTemplate receiveTemplate = new JMSTemplate(this);
+    protected JMSTemplate sendTemplate = new JMSTemplate(this);
+    protected JMSTemplate receiveTemplate = new JMSTemplate(this);
 
     protected ExecutorService senderThread;
     protected ExecutorService dispatchThreads;
@@ -110,46 +111,49 @@ public abstract class JMSRemoteSystem {
 
     public void reset() throws InterruptedException {
         running.set(false);
-        sendTemplate.reset();
-        receiveTemplate.reset();
-
-        if (senderThread != null) {
-            senderThread.shutdown();
-            senderThread.awaitTermination(30, TimeUnit.SECONDS);
-        }
-        if (receiveThread != null) {
-            receiveThread.join(30000);
-        }
-        if (dispatchThreads != null) {
-            dispatchThreads.shutdown();
-            dispatchThreads.awaitTermination(30, TimeUnit.SECONDS);
-        }
-
         synchronized (this) {
+            sendTemplate.close();
+            receiveTemplate.close();
+
+            if (senderThread != null) {
+                senderThread.shutdown();
+                senderThread.awaitTermination(30, TimeUnit.SECONDS);
+            }
+            if (receiveThread != null) {
+                receiveThread.join(30000);
+            }
+            if (dispatchThreads != null) {
+                dispatchThreads.shutdown();
+                dispatchThreads.awaitTermination(30, TimeUnit.SECONDS);
+            }
+
             senderThread = null;
             receiveThread = null;
             dispatchThreads = null;
             systemId = null;
-        }
 
-        for (Iterator<Skeleton> iterator = exportedSkeletonsById.values().iterator(); iterator.hasNext();) {
-            Skeleton entry = iterator.next();
-            if (entry instanceof ExplictDestinationSkeleton) {
-                ((ExplictDestinationSkeleton) entry).stop();
+            for (Iterator<Skeleton> iterator = exportedSkeletonsById.values().iterator(); iterator.hasNext();) {
+                Skeleton entry = iterator.next();
+                if (entry instanceof ExplictDestinationSkeleton) {
+                    ((ExplictDestinationSkeleton) entry).stop();
+                }
+                iterator.remove();
             }
-            iterator.remove();
-        }
 
-        for (Iterator<RequestExchange> iterator = requests.values().iterator(); iterator.hasNext();) {
-            RequestExchange entry = iterator.next();
-            entry.cancel();
-            iterator.remove();
-        }
+            for (Iterator<RequestExchange> iterator = requests.values().iterator(); iterator.hasNext();) {
+                RequestExchange entry = iterator.next();
+                entry.cancel();
+                iterator.remove();
+            }
 
-        exportedRemoteRefs.clear();
-        exportedSkeletonsById.clear();
-        objectCounter.set(0);
-        requestCounter.set(0);
+            exportedRemoteRefs.clear();
+            exportedSkeletonsById.clear();
+            objectCounter.set(0);
+            requestCounter.set(0);
+
+            sendTemplate = new JMSTemplate(this);
+            receiveTemplate = new JMSTemplate(this);
+        }
         running.set(true);
     }
 
@@ -294,6 +298,10 @@ public abstract class JMSRemoteSystem {
                     }
                 }
             }
+        } catch (TemplateClosedException tce) {
+            //TODO we should probably just eat this.
+            tce.printStackTrace();
+            throw tce;
         } catch (Exception e) {
             e.printStackTrace();
             receiveTemplate.reset();
@@ -319,6 +327,10 @@ public abstract class JMSRemoteSystem {
                         msg.setLongProperty(MSG_PROP_REQUEST, response.requestId);
                         msg.setJMSType(MSG_TYPE_RESPONSE);
                         producer.send(requestMessage.getJMSReplyTo(), msg, requestMessage.getJMSDeliveryMode(), requestMessage.getJMSPriority(), 0);
+                        return;
+                    } catch (TemplateClosedException tce) {
+                        //TODO we should probably just eat this.
+                        tce.printStackTrace();
                         return;
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -365,6 +377,8 @@ public abstract class JMSRemoteSystem {
                     while (running.get()) {
                         try {
                             receiveAndDispatch();
+                        } catch (TemplateClosedException tce) {
+                            return;
                         } catch (Exception e) {
                         }
                     }
