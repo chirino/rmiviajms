@@ -13,7 +13,6 @@ package org.fusesource.rmiviajms.internal;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -26,7 +25,12 @@ import java.rmi.server.RemoteCall;
 import java.rmi.server.RemoteObject;
 import java.rmi.server.RemoteObjectInvocationHandler;
 import java.rmi.server.RemoteRef;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import javax.jms.Destination;
 
@@ -178,7 +182,7 @@ final public class JMSRemoteRef implements RemoteRef {
         return false;
     }
 
-    public static <T> T toProxy(Destination destination, Class<T> mainClass, Class<?>... extraInterface) throws RemoteException {
+    public static <T> T toProxy(String destination, Class<T> mainClass, Class<?>... extraInterface) throws RemoteException {
         if (mainClass == null) {
             throw new IllegalArgumentException("mainClass cannot be null.");
         }
@@ -201,7 +205,7 @@ final public class JMSRemoteRef implements RemoteRef {
             list.add(Remote.class);
         }
 
-        ref.initialize(list, destination, false);
+        ref.initialize(list, JMSRemoteSystem.createDestination(destination), false);
         return (T) ref.getProxy();
     }
 
@@ -311,7 +315,7 @@ final public class JMSRemoteRef implements RemoteRef {
     }
 
     public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-        destination = (Destination) in.readObject();
+        destination = (Destination)in.readObject();
         isRemote = in.readBoolean();
         objectId = in.readLong();
         ClassLoader cl = Thread.currentThread().getContextClassLoader();

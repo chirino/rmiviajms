@@ -35,9 +35,11 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
         this.ref = ref;
     }
 
-    public void start() {
+    public void start() throws JMSException, TemplateClosedException {
         if( receiveThread == null ) {
             running.set(true);
+            //Create the consumer so we don't miss messages:
+            template.getMessageConsumer(ref.getDestination());
             receiveThread = new Thread(this);
             receiveThread.setName("RMI via JMS: receiver");
             receiveThread.setDaemon(true);
@@ -64,6 +66,7 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
                 Session session = template.getSession();
                 MessageConsumer consumer = template.getMessageConsumer(ref.getDestination());
                 Message msg = consumer.receive(500);
+                
                 if( msg!=null ) {
                     if( JMSRemoteSystem.MSG_TYPE_REQUEST.equals(msg.getJMSType()) ) {
                         // Handle decoding the message in the dispatch thread.
@@ -80,7 +83,7 @@ class ExplictDestinationSkeleton extends Skeleton implements Runnable {
                 tce.printStackTrace();
                 return;
             } 
-            catch (Exception e) {
+            catch (Throwable e) {
                 e.printStackTrace();
                 template.reset();
             }

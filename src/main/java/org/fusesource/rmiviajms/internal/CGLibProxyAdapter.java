@@ -21,6 +21,7 @@ import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationHandler;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -55,7 +56,12 @@ public class CGLibProxyAdapter {
 
     private static Map<Class<?>, Object> generatedClasses = Collections.synchronizedMap(new WeakHashMap<Class<?>, Object>());
 
-    protected CGLibProxyAdapter() {
+    private static final HashSet<String> PASSED_OBJECT_METHODS = new HashSet<String>();
+
+    static {
+        PASSED_OBJECT_METHODS.add("hashCode");
+        PASSED_OBJECT_METHODS.add("equals");
+        PASSED_OBJECT_METHODS.add("toString");
     }
 
     private static class HandlerAdapter implements MethodInterceptor {
@@ -83,6 +89,10 @@ public class CGLibProxyAdapter {
             if (method.getName().equals("writeReplace")) {
                 //                System.out.println("CGLIB EXECUTING WRITE REPLACE FOR: " + obj.getClass());
                 return serializer;
+            }
+
+            if (method.getDeclaringClass() == Object.class && !PASSED_OBJECT_METHODS.contains(method.getName())) {
+                return proxy.invokeSuper(obj, args);
             }
             return serializer.handler.invoke(obj, method, args);
         }
@@ -148,7 +158,7 @@ public class CGLibProxyAdapter {
         //Pop in the CGILibSerializableProxy interface to support serialization of the proxy:
         interfaces[0] = CGILibSerializableProxy.class;
 
-//        System.out.println("CGLIB CREATING PROXY for " + superclass.getName() + " with interfaces: " + Arrays.asList(interfaces));
+        //        System.out.println("CGLIB CREATING PROXY for " + superclass.getName() + " with interfaces: " + Arrays.asList(interfaces));
         Enhancer e = new Enhancer();
         e.setClassLoader(JMSRemoteSystem.INSTANCE.getUserClassLoader(ha));
         e.setSuperclass(superclass);

@@ -12,6 +12,7 @@ package org.fusesource.rmiviajms.internal;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.command.ActiveMQQueue;
+import org.apache.activemq.command.ActiveMQTopic;
 
 import javax.jms.Destination;
 import javax.jms.ConnectionFactory;
@@ -31,8 +32,13 @@ final public class ActiveMQRemoteSystem extends JMSRemoteSystem {
     }
 
     @Override
-    protected Destination createQueue(String systemId) {
-        return new ActiveMQQueue(QUEUE_PREFIX+systemId);
+    protected Destination createQueue(String queueName) {
+        return new ActiveMQQueue(QUEUE_PREFIX+queueName);
+    }
+    
+    @Override
+    protected Destination createTopic(String topicName) {
+        return new ActiveMQTopic(QUEUE_PREFIX+topicName);
     }
 
 }
