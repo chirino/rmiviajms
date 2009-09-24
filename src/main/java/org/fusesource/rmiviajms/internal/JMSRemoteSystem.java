@@ -180,27 +180,39 @@ public abstract class JMSRemoteSystem {
      * @param obj
      * @param destination
      */
-    public void exportNonRemote(Object obj, Class<?>[] interfaces, Destination destination, JMSRemoteRef ref) throws Exception {
-        ref.initializeNonRemote(obj.getClass(), interfaces, destination, objectCounter.incrementAndGet());
+    public void exportNonRemote(Object obj, Class<?>[] interfaces, String destination, JMSRemoteRef ref) throws Exception {
+        ref.initializeNonRemote(obj.getClass(), interfaces, createDestination(destination), objectCounter.incrementAndGet());
         ExplictDestinationSkeleton skeleton = new ExplictDestinationSkeleton(this, ref, obj);
         exportedSkeletonsById.put(ref.getObjectId(), skeleton);
         exportedRemoteRefs.put(new RemoteIdentity(obj), ref);
-        skeleton.start();
+        try {
+            skeleton.start();
+        } catch (Exception e) {
+            throw new RemoteException("Error exporting object", e);
+        }
     }
 
     public void export(JMSRemoteRef ref, Remote obj) throws RemoteException {
         ref.initialize(obj.getClass(), receiveTemplate.getLocalSystemQueue(), objectCounter.incrementAndGet());
         exportedSkeletonsById.put(ref.getObjectId(), new Skeleton(this, ref, obj));
         exportedRemoteRefs.put(new RemoteIdentity(obj), ref);
-        kickReceiveThread();
+        try {
+            kickReceiveThread();
+        } catch (TemplateClosedException tce) {
+            throw new RemoteException("RemoteSystem reset", tce);
+        }
     }
 
-    public void export(JMSRemoteRef ref, Remote obj, Destination destination) throws RemoteException {
-        ref.initialize(obj.getClass(), destination, objectCounter.incrementAndGet());
+    public void export(JMSRemoteRef ref, Remote obj, String destination) throws RemoteException {
+        ref.initialize(obj.getClass(), createDestination(destination), objectCounter.incrementAndGet());
         ExplictDestinationSkeleton skeleton = new ExplictDestinationSkeleton(this, ref, obj);
         exportedSkeletonsById.put(ref.getObjectId(), skeleton);
         exportedRemoteRefs.put(new RemoteIdentity(obj), ref);
-        skeleton.start();
+        try {
+            skeleton.start();
+        } catch (Exception e) {
+            throw new RemoteException("Error exporting object", e);
+        }
     }
 
     public JMSRemoteRef getExportedRemoteRef(Remote obj) throws NoSuchObjectException {
@@ -348,7 +360,9 @@ public abstract class JMSRemoteSystem {
     ///////////////////////////////////////////////////////////////////
     abstract protected ConnectionFactory createConnectionFactory();
 
-    abstract protected Destination createQueue(String systemId);
+    abstract protected Destination createQueue(String queueId);
+
+    abstract protected Destination createTopic(String topicId);
 
     ///////////////////////////////////////////////////////////////////
     // Helper Methods...
@@ -369,8 +383,19 @@ public abstract class JMSRemoteSystem {
         return senderThread;
     }
 
-    synchronized Thread kickReceiveThread() {
+    synchronized Thread kickReceiveThread() throws TemplateClosedException {
         if (receiveThread == null) {
+
+            //Make sure our consumer is created in this thread, so as not
+            //to miss invocation requests.
+            while (true) {
+                try {
+                    receiveTemplate.getMessageConsumer();
+                    break;
+                } catch (JMSException e1) {
+                    receiveTemplate.reset();
+                }
+            }
             receiveThread = new Thread() {
                 @Override
                 public void run() {
@@ -412,6 +437,14 @@ public abstract class JMSRemoteSystem {
             }
         }
         return name + ":" + UUID.randomUUID();
+    }
+
+    static final Destination createDestination(String destination) {
+        if (destination.startsWith(JMSRemoteObject.MULTICAST_PREFIX)) {
+            return INSTANCE.createTopic(destination.substring(JMSRemoteObject.MULTICAST_PREFIX.length()));
+        } else {
+            return INSTANCE.createQueue(destination);
+        }
     }
 
     static String signature(Method method) {

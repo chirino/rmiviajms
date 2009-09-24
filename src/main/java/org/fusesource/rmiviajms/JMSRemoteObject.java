@@ -10,32 +10,37 @@
  */
 package org.fusesource.rmiviajms;
 
-import org.fusesource.rmiviajms.internal.JMSRemoteRef;
-import org.fusesource.rmiviajms.internal.JMSRemoteSystem;
-
-import javax.jms.Destination;
-import java.rmi.server.*;
-import java.rmi.RemoteException;
-import java.rmi.Remote;
-import java.rmi.NoSuchObjectException;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
-import java.io.InvalidObjectException;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Proxy;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.rmi.NoSuchObjectException;
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+import java.rmi.server.RemoteObject;
+import java.rmi.server.ServerCloneException;
+import java.rmi.server.UnicastRemoteObject;
+
+import org.fusesource.rmiviajms.internal.JMSRemoteRef;
+import org.fusesource.rmiviajms.internal.JMSRemoteSystem;
 
 /**
  * @author chirino
  */
 public class JMSRemoteObject extends RemoteObject implements Serializable {
 
+    /**
+     * Prefixing a destination string with this prefix will assign the exported
+     * object to the topic following the prefix. Calls made via a proxy for an
+     * object exported to such a destination will be sent to all objects exported
+     * there. 
+     */
+    public static final String MULTICAST_PREFIX = "multicast:";
+    
     protected JMSRemoteObject() throws RemoteException {
         exportObject(this);
     }
 
-    protected JMSRemoteObject(Destination destination) throws RemoteException {
+    protected JMSRemoteObject(String destination) throws RemoteException {
         exportObject(this, destination);
     }
 
@@ -95,7 +100,7 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
      * @throws Exception
      *             If there is an error exporting the object
      */
-    public static Remote export(Object obj, Destination destination, Class<?>... interfaces) throws Exception {
+    public static Remote export(Object obj, String destination, Class<?>... interfaces) throws Exception {
         //If this is already a remote object just return:
         if (JMSRemoteRef.isRemoteProxy(obj)) {
             return (Remote) obj;
@@ -137,7 +142,7 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
      * @throws RemoteException
      *             If there is an error distributing the object.
      */
-    public static Remote exportObject(Remote obj, Destination destination) throws RemoteException {
+    public static Remote exportObject(Remote obj, String destination) throws RemoteException {
         //If this is already a remote object just return:
         if (JMSRemoteRef.isRemoteProxy(obj)) {
             return (Remote) obj;
@@ -201,7 +206,7 @@ public class JMSRemoteObject extends RemoteObject implements Serializable {
         return ((JMSRemoteRef) ref).getProxy();
     }
 
-    public static <T> T toProxy(Destination destination, Class<T> mainInterface, Class<?>... extraInterface) throws RemoteException {
+    public static <T> T toProxy(String destination, Class<T> mainInterface, Class<?>... extraInterface) throws RemoteException {
         return (T) JMSRemoteRef.toProxy(destination, mainInterface, extraInterface);
     }
 
