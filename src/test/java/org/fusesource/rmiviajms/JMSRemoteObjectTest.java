@@ -27,7 +27,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     private BrokerService broker;
 
-    private static interface IHelloWorld extends Remote {
+    public static interface IHelloWorld extends Remote {
         public String hello() throws RemoteException;
 
         public void world(IHelloWorldCallback callback) throws RemoteException;
@@ -36,7 +36,7 @@ public class JMSRemoteObjectTest extends TestCase {
         void slowOnewayOperations(int value) throws RemoteException, InterruptedException;
     }
 
-    private static interface IHelloWorldCallback extends Remote {
+    public static interface IHelloWorldCallback extends Remote {
         public void execute(String value) throws RemoteException;
     }
 
@@ -175,7 +175,7 @@ public class JMSRemoteObjectTest extends TestCase {
         String badMethod() throws RemoteException;
     }
 
-    static public class BadOneWay implements IBadOneWay {
+    static private class BadOneWay implements IBadOneWay {
         public String badMethod() throws RemoteException {
             return null;
         }
@@ -212,7 +212,7 @@ public class JMSRemoteObjectTest extends TestCase {
         public void execute(String value);
     }
 
-    public static class HelloWorldNotRemote implements IHelloWorldNotRemote {
+    private static class HelloWorldNotRemote implements IHelloWorldNotRemote {
         AtomicLong value = new AtomicLong();
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -231,7 +231,7 @@ public class JMSRemoteObjectTest extends TestCase {
         }
     }
 
-    public static class HelloWorldCallbackNotRemote implements IHelloWorldCallbackNotRemote {
+    private static class HelloWorldCallbackNotRemote implements IHelloWorldCallbackNotRemote {
         String value;
         CountDownLatch latch = new CountDownLatch(1);
         IHelloWorldCallbackNotRemote proxy;
