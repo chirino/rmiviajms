@@ -12,6 +12,7 @@ package org.fusesource.rmiviajms;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.rmi.server.ExportException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -104,25 +105,25 @@ public class JMSRemoteObjectTest extends TestCase {
 
         IHelloWorld hwp = (IHelloWorld) proxy;
         assertEquals("hello", hwp.hello());
-        
+
         checkHelloWorldObjectMethods(object, proxy);
     }
-    
+
     /**
      * Make sure that object methods are handled properly
+     * 
      * @throws RemoteException
      */
     private static void checkHelloWorldObjectMethods(Object object, Object proxy) throws Exception {
-        
+
         Thread.interrupted();
-        
+
         assertFalse(proxy.equals(object));
         assertTrue(proxy.equals(proxy));
         assertNotSame(proxy.hashCode(), object.hashCode());
         assertNotSame(proxy.toString(), object.toString());
-        
+
     }
-    
 
     public void testHelloWorldCallback() throws RemoteException, InterruptedException {
         HelloWorld object = new HelloWorld();
@@ -253,8 +254,6 @@ public class JMSRemoteObjectTest extends TestCase {
             latch.countDown();
         }
     }
-    
-    
 
     public void testHelloWorldNotRemote() throws Exception {
         HelloWorldNotRemote object = new HelloWorldNotRemote();
@@ -280,7 +279,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     public void testHelloWorldAtKnownDestinationNotRemote() throws Exception {
         HelloWorldNotRemote object = new HelloWorldNotRemote();
-        Remote proxy = JMSRemoteObject.export(object, "FOO", IHelloWorldNotRemote.class );
+        Remote proxy = JMSRemoteObject.export(object, "FOO", IHelloWorldNotRemote.class);
 
         assertTrue(proxy instanceof IHelloWorldNotRemote);
 
@@ -330,11 +329,11 @@ public class JMSRemoteObjectTest extends TestCase {
         HelloWorldCallbackClass proxy;
 
         HelloWorldCallbackClass() throws Exception {
-            proxy = (HelloWorldCallbackClass) JMSRemoteObject.export(this, (Class<?> [])null);
+            proxy = (HelloWorldCallbackClass) JMSRemoteObject.export(this, (Class<?>[]) null);
         }
 
         public HelloWorldCallbackClass(String destination) throws Exception {
-            proxy = (HelloWorldCallbackClass) JMSRemoteObject.export(this, destination, new Class[]{});
+            proxy = (HelloWorldCallbackClass) JMSRemoteObject.export(this, destination, new Class[] {});
         }
 
         public HelloWorldCallbackClass getProxy() {
@@ -346,21 +345,21 @@ public class JMSRemoteObjectTest extends TestCase {
             latch.countDown();
         }
     }
-    
+
     public void testHelloWorldClass() throws Exception {
         HelloWorldClass object = new HelloWorldClass();
-        Remote proxy = JMSRemoteObject.export(object, (Class<?> []) null);
+        Remote proxy = JMSRemoteObject.export(object, (Class<?>[]) null);
         assertTrue(proxy instanceof HelloWorldClass);
 
         HelloWorldClass hwp = (HelloWorldClass) proxy;
         assertEquals("hello", hwp.hello());
-        
+
         checkHelloWorldObjectMethods(object, proxy);
     }
-    
+
     public void testHelloWorldCallbackClass() throws Exception, InterruptedException {
         HelloWorldClass object = new HelloWorldClass();
-        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, new Class []{});
+        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, new Class[] {});
 
         HelloWorldCallbackClass callback = new HelloWorldCallbackClass();
         proxy.world(callback.getProxy());
@@ -372,7 +371,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     public void testHelloWorldAtKnownDestinationClass() throws Exception {
         HelloWorldClass object = new HelloWorldClass();
-        Remote proxy = JMSRemoteObject.export(object, "FOO", (Class<?> []) null);
+        Remote proxy = JMSRemoteObject.export(object, "FOO", (Class<?>[]) null);
 
         assertTrue(proxy instanceof HelloWorldClass);
 
@@ -382,7 +381,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     public void testHelloWorldCallbackAtKnownDestinationClass() throws Exception, InterruptedException {
         HelloWorldClass object = new HelloWorldClass();
-        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, (Class<?> []) null);
+        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, (Class<?>[]) null);
 
         HelloWorldCallbackClass callback = new HelloWorldCallbackClass("BAR");
         proxy.world(callback.getProxy());
@@ -391,10 +390,10 @@ public class JMSRemoteObjectTest extends TestCase {
         assertEquals("world", callback.value);
 
     }
-    
+
     public void testOnewayClass() throws Exception, InterruptedException {
         HelloWorldClass object = new HelloWorldClass();
-        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, (Class<?> []) null);
+        HelloWorldClass proxy = (HelloWorldClass) JMSRemoteObject.export(object, (Class<?>[]) null);
 
         // oneways will return before the remote invocation completes.
         proxy.slowOnewayOperations(1);
@@ -405,7 +404,6 @@ public class JMSRemoteObjectTest extends TestCase {
         assertEquals(1, object.value.get());
     }
 
-
     public static class TopicTestClass {
 
     }
@@ -413,13 +411,13 @@ public class JMSRemoteObjectTest extends TestCase {
     public void testTopicMultibinding() throws Exception, InterruptedException {
         //System.out.println("Starting test");
         HelloWorldClass object1 = new HelloWorldClass();
-        HelloWorldClass proxy1 = (HelloWorldClass) JMSRemoteObject.export(object1, JMSRemoteObject.MULTICAST_PREFIX + "TEST_TOPIC", (Class<?> [])null);
+        HelloWorldClass proxy1 = (HelloWorldClass) JMSRemoteObject.export(object1, JMSRemoteObject.MULTICAST_PREFIX + "TEST_TOPIC", (Class<?>[]) null);
 
         HelloWorldClass object2 = new HelloWorldClass();
-        JMSRemoteObject.export(object2, JMSRemoteObject.MULTICAST_PREFIX + "TEST_TOPIC", (Class<?> []) null);
+        JMSRemoteObject.export(object2, JMSRemoteObject.MULTICAST_PREFIX + "TEST_TOPIC", (Class<?>[]) null);
 
         System.out.println("Testing slow one way");
-        
+
         // One proxy invocation should invoke both objects.
         proxy1.slowOnewayOperations(1);
 
@@ -433,5 +431,23 @@ public class JMSRemoteObjectTest extends TestCase {
         assertEquals(1, object2.value.get());
     }
 
+    public static class TestNoNoArgConstructorObject {
+        TestNoNoArgConstructorObject(String foo) {
+
+        }
+    }
+
+    public void testInvalidNoArgConstructorExport() throws Exception {
+        TestNoNoArgConstructorObject shouldFail = new TestNoNoArgConstructorObject("fail");
+        try {
+            JMSRemoteObject.export(shouldFail);
+        } catch (ExportException ee) {
+            System.out.println("Got expected export exception: " + ee.getMessage());
+            return;
+        }
+        
+        fail("Didn't get expected export failure exception"); 
+
+    }
 
 }

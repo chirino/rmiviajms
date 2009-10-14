@@ -18,8 +18,10 @@ package org.fusesource.rmiviajms.internal;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationHandler;
+import java.rmi.server.ExportException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -131,6 +133,10 @@ public class CGLibProxyAdapter {
                 ObjectStreamException oe = new ObjectStreamException(e.getMessage()) {};
                 oe.initCause(e);
                 throw oe;
+            } catch (ExportException ee) {
+                ObjectStreamException oe = new ObjectStreamException(ee.getMessage()) {};
+                oe.initCause(ee);
+                throw oe;
             }
         }
     }
@@ -144,7 +150,7 @@ public class CGLibProxyAdapter {
         return CGILibSerializableProxy.class.isAssignableFrom(cl);
     }
 
-    public static Object newProxyInstance(Class<?> superclass, Class<?>[] interfaces, InvocationHandler h) {
+    public static Object newProxyInstance(Class<?> superclass, Class<?>[] interfaces, InvocationHandler h) throws ExportException {
         HandlerAdapter ha = new HandlerAdapter(h, superclass, interfaces);
 
         if (interfaces != null) {
@@ -157,6 +163,13 @@ public class CGLibProxyAdapter {
 
         //Pop in the CGILibSerializableProxy interface to support serialization of the proxy:
         interfaces[0] = CGILibSerializableProxy.class;
+
+        //Check that we have a no arg constructor:
+        try {
+            superclass.getDeclaredConstructor(new Class<?> [] {});
+        } catch (NoSuchMethodException nsme) {
+            throw new ExportException("Can't export " + superclass.getName() + " because it doesn't define a no arg constructor. Try exporting with specified service interfaces", nsme);
+        }
 
         //        System.out.println("CGLIB CREATING PROXY for " + superclass.getName() + " with interfaces: " + Arrays.asList(interfaces));
         Enhancer e = new Enhancer();
