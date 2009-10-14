@@ -41,7 +41,7 @@ public class JMSRemoteObjectTest extends TestCase {
         public void execute(String value) throws RemoteException;
     }
 
-    public static class HelloWorld implements IHelloWorld {
+    private static class HelloWorld implements IHelloWorld {
         AtomicLong value = new AtomicLong();
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -65,7 +65,7 @@ public class JMSRemoteObjectTest extends TestCase {
 
     }
 
-    public static class HelloWorldCallback extends JMSRemoteObject implements IHelloWorldCallback {
+    private static class HelloWorldCallback extends JMSRemoteObject implements IHelloWorldCallback {
         String value;
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -176,7 +176,7 @@ public class JMSRemoteObjectTest extends TestCase {
         String badMethod() throws RemoteException;
     }
 
-    static public class BadOneWay implements IBadOneWay {
+    static private class BadOneWay implements IBadOneWay {
         public String badMethod() throws RemoteException {
             return null;
         }
@@ -213,7 +213,7 @@ public class JMSRemoteObjectTest extends TestCase {
         public void execute(String value);
     }
 
-    public static class HelloWorldNotRemote implements IHelloWorldNotRemote {
+    private static class HelloWorldNotRemote implements IHelloWorldNotRemote {
         AtomicLong value = new AtomicLong();
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -232,7 +232,7 @@ public class JMSRemoteObjectTest extends TestCase {
         }
     }
 
-    public static class HelloWorldCallbackNotRemote implements IHelloWorldCallbackNotRemote {
+    private static class HelloWorldCallbackNotRemote implements IHelloWorldCallbackNotRemote {
         String value;
         CountDownLatch latch = new CountDownLatch(1);
         IHelloWorldCallbackNotRemote proxy;
