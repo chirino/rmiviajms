@@ -1,18 +1,23 @@
 # -*- ruby -*-
 #
-# This is a sample Rakefile to which you can add tasks to manage your website. For example, users
-# may use this file for specifying an upload task for their website (copying the output to a server
-# via rsync, ftp, scp, ...).
-#
-# It also provides some tasks out of the box, for example, rendering the website, clobbering the
-# generated files, an auto render task,...
+## Copyright (C) 2009 Progress Software, Inc.
+## http://fusesource.com
+## 
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+## 
+##    http://www.apache.org/licenses/LICENSE-2.0
+## 
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
 #
 
 require 'webgen/webgentask'
 require 'webgen/website'
-
-# TODO couldn't figure out how to use the autoload stuff! :)
-require 'ext/fuse/sitecopy_rake.rb'
 
 # TODO must change this to the actual project!
 # one day it would be nice to find this from the src/metainfo file
@@ -20,9 +25,6 @@ project_id = "rmiviajms"
 
 task :default => :webgen
 task :rebuild => [:clobber, :webgen]
-task :upload => ["sitecopy:upload"]
-task :reupload => ["sitecopy:clobber", "sitecopy:upload"]
-task :deploy => ["sitecopy:clobber", :webgen, "sitecopy:upload", :linkcheck]
 task :auto => :auto_webgen
 
 Webgen::WebgenTask.new do |website|
@@ -52,85 +54,7 @@ task :auto_webgen do
   end
 end
 
-
-# lets parse a file from ~/.fuseforge.rc
-#   username anonymous
-#   password foo@bar.example
-def get_username_pwd
-  userpwd = ""
-  userpwd_file_name = File.expand_path("~/.fuseforge.rc")
-  #puts "Looking for file #{userpwd_file_name}"
-  #userpwd_file_name = "/Users/jstrachan/.fuseforge.rc"
-  if File.file?(userpwd_file_name) 
-    userpwd = IO.readlines(userpwd_file_name).join("")
-    #puts "User file is #{userpwd}"
-  end
-  userpwd.strip
-end
-
-# lets not use safe mode due to timestamp wierdness
-#safe
-
-Fuse::SitecopyTask.new("forgesite", <<-SITECOPYRC)
-  server fusesource.com
-  protocol http
-  #{get_username_pwd}  
-  local out
-  remote /forge/dav/#{project_id}
-  
-  state checksum
-  exclude /maven
-  exclude /repo
-  exclude /ignore
-  exclude /ignore
-  ignore /maven
-  ignore /repo
-  ignore /.htaccess
-  exclude /.htaccess
-    
-SITECOPYRC
-
-
-desc "checks the links on the deployed site"
-task :linkcheck do
-  puts 'Generating linkerrors.html file using the linkchecker executable from (http://linkchecker.sourceforge.net)'
-
-  params = "--ignore-url=\"(http://localhost|^git|^ssh|^mailto)\" http://#{project_id}.fusesource.org/"
-  htmlcmd = "linkchecker -o html #{params} > linkerrors.html"
-  puts htmlcmd
-  system htmlcmd
-
-  puts "##teamcity[publishArtifacts 'webgen/linkerrors.html']"
-  
-  puts ''
-  puts 'Starting link checking'
-  system "linkchecker #{params} > linkerrors.log"
-
-
-  pat = /.* (\d+) warnings? found.* (\d+) errors? found.*/
-  text = File.read("linkerrors.log")
-  match = pat.match(text)
-
-  if match == nil
-    puts "##teamcity[buildStatus status='FAILURE' text='LinkChecker failed to find the number of warnings and errors in linkerrors.log. See build artifact: linkerrors.html']"
-    exit
-  end
-  
-  warnings = match[1]
-  errors = match[2]  
-  
-  if has_value(warnings)
-    puts "##teamcity[errorDetails='LinkChecker found some bad HTML links! #{warnings} warnings. See build artifact: linkerrors.html' status='WARNING']"
-  end
-  if has_value(errors)
-    puts "##teamcity[errorDetails='LinkChecker found some bad HTML links! #{errors} errors. See build artifact: linkerrors.html' status='FAILURE']"
-  end
-  if has_value(warnings) or has_value(errors) 
-    puts "##teamcity[buildStatus status='FAILURE' text='LinkChecker found some bad HTML links! #{warnings} warnings and #{errors} errors. See build artifact: linkerrors.html']"
-    exit 1
-  end
-end
-
+#
 def has_value(text)
   text != nil and text != "" and text != "0"
 end
