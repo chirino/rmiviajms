@@ -18,9 +18,9 @@
     title: Javadoc
     in_menu: false
     sort_info: 60
-    url: http://rmiviajms.fusesource.org/maven/1.0-SNAPSHOT/apidocs/index.html
+    url: http://rmiviajms.fusesource.org/maven/1.0/apidocs/index.html
 - /maven/index.html:
     title: Maven Reports
     in_menu: false
     sort_info: 5
-    url: http://rmiviajms.fusesource.org/maven/1.0-SNAPSHOT/index.html
+    url: http://rmiviajms.fusesource.org/maven/1.0/index.html

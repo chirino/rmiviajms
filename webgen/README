@@ -46,24 +46,5 @@ will run webgen in auto mode where it will auto-detect changes in the source fil
 regenerate the site automatically for you.
 
 
-Cleaning up:
-
-    rake clobber
-    
-Deploying:
-    
-* to be able to deploy the site you will need to install sitecopy
-
-    sudo port install sitecopy  
-
-* to deploy the site run
-
-    rake upload
-    
-To see how to use Continuous Integration with this build see:
-http://fusesource.com/wiki/display/FUSEFORGE/Deploy+Webgen+Sites+using+Continuous+Integration
-
-
-
 
 

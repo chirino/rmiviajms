@@ -39,7 +39,7 @@
   project_forums_url: 'http://fusesource.com/forums'
   project_wiki_url: 'http://fusesource.com/wiki/display/RMIVIAJMS'
   project_logo: "/images/project-logo.png"
-  project_version: "1.0-SNAPSHOT"
+  project_version: "1.0"
 
   # -------------------------------------------------------------------
   # TODO it would be nice to define these in terms of the project_id variable!
